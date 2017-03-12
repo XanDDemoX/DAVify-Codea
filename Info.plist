@@ -6,12 +6,12 @@
 	<string>Unknown</string>
 	<key>Buffer Order</key>
 	<array>
+		<string>Global</string>
 		<string>Main</string>
 		<string>HttpRequest</string>
 		<string>HttpServer</string>
 		<string>WebDavServer</string>
 		<string>XmlBuilder</string>
-		<string>FileSystem</string>
 	</array>
 	<key>Description</key>
 	<string>No description available</string>
