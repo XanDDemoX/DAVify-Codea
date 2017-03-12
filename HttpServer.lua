@@ -1,4 +1,3 @@
-socket = require("socket")
 HttpServer = class()
 
 function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
@@ -77,6 +76,7 @@ function HttpServer:update()
     -- Receive the request's first line
     local requestString = client:receive()
     if requestString then
+        print(requestString)
         -- try receive and parse the rest of the request
         local request = HttpRequest.fromSocket(requestString,client)
         if request then
@@ -113,19 +113,26 @@ function HttpServer:response(status,message,content,...)
     assert(status ~= nil, "Status must be supplied")
     assert(message ~= nil, "Status message must be supplied")
     content = content or "" 
+    -- response line
+    local str = {string.format("HTTP/1.1 %i %s\r\n", status, message)}
     local header = {...}
-    -- pok
-    table.insert(header,1,self.name)
-    table.insert(header,1,"Server")
+    -- add some standard header fields
+    table.insert(header,"Server")
+    table.insert(header,self.name)
     
-    table.insert(header,"Content-Length")
-    table.insert(header,tostring(string.len(content)))
+    
+    -- calculate content length 
+    local bytes = {string.byte(content,1,-1)}
+    local length = #bytes
+    if length > 0 then
+        table.insert(header,"Content-Length")
+        table.insert(header,tostring(length))
+    end
     
     table.insert(header,"Connection")
-    table.insert(header,"Closed")
+    table.insert(header,"Close")
     
-    local str = {string.format("HTTP/1.1 %i %s\r\n", status, message)}
-    
+    -- construct header 
     for i=1,#header,2 do
         local k,v = header[i],header[i+1]
         table.insert(str,k)
@@ -133,9 +140,10 @@ function HttpServer:response(status,message,content,...)
         table.insert(str,tostring(v))
         table.insert(str,"\r\n")
     end
-
+    -- construct body
     table.insert(str,"\r\n")
     table.insert(str, content)
+
     local response = table.concat(str)
     print(response)
     return response
