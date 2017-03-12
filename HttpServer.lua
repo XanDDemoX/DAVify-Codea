@@ -9,11 +9,12 @@ function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
     self.timeout = timeout or 1/6000
     -- 2 seconds, should be more than enough time to receive a request and send a response for light use
     self.clientTimeout = clientTimeout or 2
-    self.clientLimit = clientLimit or 2
+    self.clientLimit = clientLimit or 10
     self.running = false
     self.receiving = false
     self.stopAfterRecieve = false
     self.name = "Codea-HTTP/1.1"
+    --self.clients = {}
 end
 
 function HttpServer:getIp()
@@ -76,7 +77,6 @@ function HttpServer:update()
     -- Receive the request's first line
     local requestString = client:receive()
     if requestString then
-        print(requestString)
         -- try receive and parse the rest of the request
         local request = HttpRequest.fromSocket(requestString,client)
         if request then
@@ -86,17 +86,17 @@ function HttpServer:update()
                 client:send(self:error(505,"HTTP Version Not Supported"))
             else
                 -- request recieved successfully and pass to callback to get the response
-                local response = self.callback(request)
-                if response then 
-                    client:send(response)
-                else
-                    -- send 500 because server error occured
-                    client:send(self:error())
+                local response = self.callback(request) or self:error() -- 500
+                if response.status == 207 then -- multistatus send header and content individually
+                    client:send(response:getHeader())
+                    client:send(response:getContent())
+                else -- send full response
+                    client:send(response:toString())
                 end
             end
         else
             -- send 400 bad request because failed to parse request
-            client:send(self:error(400,"Bad Request"))
+            client:send(self:error(400,"Bad Request"):toString())
         end
     else
         -- timeout
@@ -113,39 +113,28 @@ function HttpServer:response(status,message,content,...)
     assert(status ~= nil, "Status must be supplied")
     assert(message ~= nil, "Status message must be supplied")
     content = content or "" 
-    -- response line
-    local str = {string.format("HTTP/1.1 %i %s\r\n", status, message)}
+    
     local header = {...}
     -- add some standard header fields
     table.insert(header,"Server")
     table.insert(header,self.name)
     
-    
     -- calculate content length 
-    local bytes = {string.byte(content,1,-1)}
-    local length = #bytes
+    --local bytes = {string.byte(content,1,-1)}
+    local length = string.len(content)
     if length > 0 then
         table.insert(header,"Content-Length")
         table.insert(header,tostring(length))
+        
+        table.insert(header,"Cache-Control")
+        table.insert(header,"no-cache")
     end
     
     table.insert(header,"Connection")
     table.insert(header,"Close")
     
-    -- construct header 
-    for i=1,#header,2 do
-        local k,v = header[i],header[i+1]
-        table.insert(str,k)
-        table.insert(str,": ")
-        table.insert(str,tostring(v))
-        table.insert(str,"\r\n")
-    end
-    -- construct body
-    table.insert(str,"\r\n")
-    table.insert(str, content)
-
-    local response = table.concat(str)
-    print(response)
+    local response = HttpResponse(status,message,header,content)
+    print(response:toString())
     return response
 end
 
