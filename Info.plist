@@ -9,6 +9,7 @@
 		<string>Global</string>
 		<string>Main</string>
 		<string>HttpRequest</string>
+		<string>HttpResponse</string>
 		<string>HttpServer</string>
 		<string>WebDavServer</string>
 		<string>XmlBuilder</string>
