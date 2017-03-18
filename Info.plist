@@ -9,6 +9,7 @@
 		<string>Global</string>
 		<string>Main</string>
 		<string>FileSystem</string>
+		<string>MimeType</string>
 		<string>XmlBuilder</string>
 		<string>HttpRequest</string>
 		<string>HttpResponse</string>
