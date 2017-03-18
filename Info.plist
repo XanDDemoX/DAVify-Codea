@@ -8,11 +8,12 @@
 	<array>
 		<string>Global</string>
 		<string>Main</string>
+		<string>FileSystem</string>
+		<string>XmlBuilder</string>
 		<string>HttpRequest</string>
 		<string>HttpResponse</string>
 		<string>HttpServer</string>
 		<string>WebDavServer</string>
-		<string>XmlBuilder</string>
 	</array>
 	<key>Description</key>
 	<string>No description available</string>
