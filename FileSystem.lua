@@ -11,6 +11,14 @@ function FolderNode:init(name)
     self.nodes = {}
 end
 
+function FolderNode:canCreateFolder()
+    return false
+end
+
+function FolderNode:createFolder(name)
+    return false
+end
+
 function FolderNode:getNodes()
     local nodes = {}
     for k, node in pairs(self.nodes) do
@@ -136,9 +144,7 @@ end
 function NativeFileNode:open(...)
     local path = self:nativePath()
     assert(path~=nil)
-    local stream = io.open(path,...)
-    assert(stream~=nil)
-    return stream
+    return assert(io.open(path,...))
 end
 
 function NativeFileNode:size()
@@ -156,7 +162,10 @@ function NativeFileNode:read()
 end
 
 function NativeFileNode:write(data)
-    
+    assert(type(data)=="string","'data' must be a string")
+    local stream = self:open("w+")
+    stream:write(data)
+    stream:close()
 end
 
 function NativeFileNode:exists()
@@ -170,7 +179,32 @@ function NativeFileNode:exists()
     return false
 end
 
--- project 
+-- projects
+ProjectCollectionFolderNode = class(FolderNode)
+function ProjectCollectionFolderNode:init(name)
+    FolderNode.init(self, name)
+end
+
+function ProjectCollectionFolderNode:canCreateFolder()
+    return true
+end
+
+function ProjectCollectionFolderNode:validFolderName(name)
+    
+end
+
+function ProjectCollectionFolderNode:createFolder(name)
+    if not self:validFolderName(name) then
+        return false
+    end
+    
+    local result = xpcall(createProject,function() end,string.format("%s:%s",self.name,name))
+    if result then
+        self:add(ProjectFolderNode(name))
+    end
+    return false, result
+end
+
 ProjectFolderNode = class(FolderNode)
 function ProjectFolderNode:init(name)
     FolderNode.init(self, name)
@@ -186,7 +220,13 @@ function ProjectFileNode:init(name)
 end
 
 function ProjectFileNode:nativePath()
-    return string.format("%s/Documents/%s.codea/%s",os.getenv("HOME"),self.folder.name,self.name)
+    local colName = self.folder.folder.name
+    local projName = self.folder.name
+    if colName == "Documents" then
+        return string.format("%s/Documents/%s.codea/%s",os.getenv("HOME"),projName,self.name)
+    else
+        return string.format("%s/Documents/%s.collection/%s.codea/%s",os.getenv("HOME"),colName,projName,self.name)
+    end
 end
 
 -- shader
