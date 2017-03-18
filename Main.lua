@@ -1,19 +1,28 @@
 -- WebDavServer
 
--- Use this function to perform your initial setup
 function setup()
-    
     print("loading project data ...")
-    
     -- initialise the virtual file system
     -- create the root folder
     local folder = FolderNode()
     
     -- create a folder for projects and add all non example projects
     local projects = FolderNode("Projects")
+    local documents = ProjectCollectionFolderNode("Documents")
+    projects:add(documents)
     for i, name in ipairs(listProjects()) do
-        if not name:find(":") then
-            projects:add(ProjectFolderNode(name))
+        local idx = name:find(":",1,true)
+        if idx then
+            local colName = name:sub(1,idx-1)
+            local projName = name:sub(idx+1)
+            local collection = projects:get(colName)
+            if not collection then
+                collection = ProjectCollectionFolderNode(colName)
+                projects:add(collection)
+            end
+            collection:add(ProjectFolderNode(projName))
+        else
+            documents:add(ProjectFolderNode(name))
         end
     end
     folder:add(projects)
