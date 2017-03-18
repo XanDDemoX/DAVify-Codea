@@ -72,7 +72,10 @@ function HttpServer:receive(request,client)
     if not method or not path or not version then
         return HttpResponse(400) -- give up, couldn't even parse request line
     end
+    
+    -- sanitise path 
     path = url.unescape(path) -- remove url escaping from path e.g %20 becomes a space
+    
     local header = {}
     local body = ""
     local cur = request
