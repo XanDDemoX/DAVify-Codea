@@ -65,6 +65,51 @@ function HttpServer:stop()
     self.socket = nil
 end
 
+-- reads a HttpRequest header and body directly from a socket parsing as it goes along
+function HttpServer:receive(request,client)
+    -- attempt to parse the request line
+    local method,path,version = request:match("(.-) (/.-) (HTTP/.*)")
+    if not method or not path or not version then
+        return HttpResponse(400) -- give up, couldn't even parse request line
+    end
+    path = url.unescape(path) -- remove url escaping from path e.g %20 becomes a space
+    local header = {}
+    local body = ""
+    local cur = request
+    -- read and parse the header
+    while cur ~= nil and cur ~= "" do
+        cur = client:receive()
+        if cur ~= nil and cur ~= "" then
+            local i = cur:find(":",1,true)
+            if i then
+                local name,value = cur:sub(1,i-1),cur:sub(i+1)
+                header[name] = value
+            else
+                return HttpResponse(400)
+            end
+        end
+    end
+    if not cur then return end -- timeout
+    -- get and parse the content length (bytes)
+    local size = tonumber(header["Content-Length"])
+    if size and size > 0 then
+        body = client:receive(size) -- read the content (probably needs to be smarter if content is massive)
+        if not body then -- timeout
+            return nil
+        end
+    elseif not size then
+        -- test for a body by attempting to receive 1 byte on a short timeout
+        client:settimeout(0.01)
+        local byte = client:receive(1)
+        client:settimeout(self.clientTimeout)
+        -- if there is more data then send 411 length required
+        if byte then
+            return HttpResponse(411)
+        end
+    end
+    return HttpRequest(method,path,version,header,body)
+end
+
 function HttpServer:update()
     if self.running == false then
         return
@@ -80,28 +125,33 @@ function HttpServer:update()
         local requestString = client:receive()
         if requestString then
             -- try receive and parse the rest of the request
-            local request = HttpRequest.fromSocket(requestString,client)
+            local request = self:receive(requestString,client)
             local response
             if request then
-                self:debugOutput(request)
-                -- check that protocol version is supported
-                if request.version ~= "HTTP/1.1" then
-                    response = HttpResponse(505)
-                else
-                    -- request recieved successfully and pass to callback to get the response
-                    response = self.callback(request)
+
+                if request:is_a(HttpRequest) then
+                    self:debugOutput(request)
+                    -- check that protocol version is supported
+                    if request.version ~= "HTTP/1.1" then
+                        response = HttpResponse(505)
+                    else
+                        -- request recieved successfully and pass to callback to get the response
+                        response = self.callback(request)
+                    end
+                elseif request:is_a(HttpResponse) then
+                    -- if request is actually a response then an error occured
+                    response = request
                 end
-            else
-                -- failed to parse so 400 bad request 
-                response = HttpResponse(400)
+                
+                response = response or HttpResponse(500) -- if no response then 500
+                self:injectHeader(response)
+                
+                -- allow the response to determine how the files are actually sent
+                response:sendHeader(client)
+                response:sendContent(client)
+                
+                self:debugOutput(response)
             end
-            
-            response = response or HttpResponse(500) -- if no response then 500
-            self:injectHeader(response)
-            response:sendHeader(client)
-            response:sendContent(client)
-            
-            self:debugOutput(response)
         else
             -- timeout
         end
@@ -121,7 +171,6 @@ end
 function HttpServer:debugOutput(obj)
     if not self.debug then return end
     if type(obj) == "table" and obj.is_a then
-        
         if obj:is_a(HttpRequest) then
             print(obj:toString())
         elseif obj:is_a(HttpGetResponse) then
