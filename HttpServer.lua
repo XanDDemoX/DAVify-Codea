@@ -1,3 +1,7 @@
+-- Generic barebones HTTP 1.1 server which implements recieving requests and sending responses  
+-- but doesn't implement any actual HTTP methods.
+-- https://tools.ietf.org/html/rfc2068
+
 HttpServer = class()
 
 function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
@@ -7,14 +11,14 @@ function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
     self.url = ""
     -- 1/6000th of a second i.e 1/100th of a frame. Can't block for too long because it will kill the draw loop.
     self.timeout = timeout or 1/6000
-    -- 2 seconds, should be more than enough time to receive a request and send a response for light use
-    self.clientTimeout = clientTimeout or 2
+    -- 10 seconds, should be more than enough time to receive a request and send a response for light use
+    self.clientTimeout = clientTimeout or 10
     self.clientLimit = clientLimit or 10
     self.running = false
     self.receiving = false
     self.stopAfterRecieve = false
     self.name = "Codea-HTTP/1.1"
-    --self.clients = {}
+    self.debug = false
 end
 
 function HttpServer:getIp()
@@ -67,80 +71,80 @@ function HttpServer:update()
     end
     -- wait for and accept a connection from a client 
     local client = self.socket:accept()
-    if client == nil then
-        return -- timeout so we dont care
-    end
-    self.receiving = true
-    -- client connected. Set the timeout.
-    client:settimeout(self.clientTimeout)
-    
-    -- Receive the request's first line
-    local requestString = client:receive()
-    if requestString then
-        -- try receive and parse the rest of the request
-        local request = HttpRequest.fromSocket(requestString,client)
-        if request then
-            print(request:toString())
-            -- check that protocol version is supported
-            if request.version ~= "HTTP/1.1" then
-                client:send(self:error(505,"HTTP Version Not Supported"))
-            else
-                -- request recieved successfully and pass to callback to get the response
-                local response = self.callback(request) or self:error() -- 500
-                if response.status == 207 then -- multistatus send header and content individually
-                    client:send(response:getHeader())
-                    client:send(response:getContent())
-                else -- send full response
-                    client:send(response:toString())
+    if client ~= nil then
+        self.receiving = true
+        -- client connected. Set the timeout.
+        client:settimeout(self.clientTimeout)
+        
+        -- Receive the request's first line
+        local requestString = client:receive()
+        if requestString then
+            -- try receive and parse the rest of the request
+            local request = HttpRequest.fromSocket(requestString,client)
+            local response
+            if request then
+                self:debugOutput(request)
+                -- check that protocol version is supported
+                if request.version ~= "HTTP/1.1" then
+                    response = HttpResponse(505)
+                else
+                    -- request recieved successfully and pass to callback to get the response
+                    response = self.callback(request)
                 end
+            else
+                -- failed to parse so 400 bad request 
+                response = HttpResponse(400)
             end
+            
+            response = response or HttpResponse(500) -- if no response then 500
+            self:injectHeader(response)
+            response:sendHeader(client)
+            response:sendContent(client)
+            
+            self:debugOutput(response)
         else
-            -- send 400 bad request because failed to parse request
-            client:send(self:error(400,"Bad Request"):toString())
+            -- timeout
         end
-    else
-        -- timeout
+        client:close() -- we don't keep connection's alive
+        self.receiving = false
+        if self.stopAfterRecieve == true then
+            self.stopAfterRecieve = false
+            self:stop()
+        end
     end
-    client:close() -- we don't keep connection's alive
-    self.receiving = false
-    if self.stopAfterRecieve == true then
-        self.stopAfterRecieve = false
-        self:stop()
+    -- reclaim memory, seccond collectgarbge ensures resurrected objects are collected 
+    -- (i.e objects which need finalising with __gc)
+    collectgarbage()
+    collectgarbage()
+end
+
+function HttpServer:debugOutput(obj)
+    if not self.debug then return end
+    if type(obj) == "table" and obj.is_a then
+        
+        if obj:is_a(HttpRequest) then
+            print(obj:toString())
+        elseif obj:is_a(HttpGetResponse) then
+            print(obj:getHeader())
+        elseif obj:is_a(HttpResponse) then
+            print(obj:toString())
+        end
     end
 end
 
-function HttpServer:response(status,message,content,...)
-    assert(status ~= nil, "Status must be supplied")
-    assert(message ~= nil, "Status message must be supplied")
-    content = content or "" 
-    
-    local header = {...}
-    -- add some standard header fields
-    table.insert(header,"Server")
-    table.insert(header,self.name)
-    
-    -- calculate content length 
-    --local bytes = {string.byte(content,1,-1)}
-    local length = string.len(content)
-    if length > 0 then
-        table.insert(header,"Content-Length")
-        table.insert(header,tostring(length))
-        
-        table.insert(header,"Cache-Control")
-        table.insert(header,"no-cache")
-    end
+function HttpServer:injectHeader(response)
+    local header = response.header
+    table.insert(header,"Cache-Control")
+    table.insert(header,"no-cache")
     
     table.insert(header,"Connection")
-    table.insert(header,"Close")
+    table.insert(header,"close")
     
-    local response = HttpResponse(status,message,header,content)
-    print(response:toString())
-    return response
-end
-
-function HttpServer:error(status, message)
-    status = status or 500
-    message = message or "Internal Server Error"
-    return self:response(status,message)
+    table.insert(header,"Date")
+    table.insert(header,os.date("!%a, %d %b %Y %X GMT"))--utc
+    
+    table.insert(header,"Server")
+    table.insert(header,self.name)
+    return header
 end
 
