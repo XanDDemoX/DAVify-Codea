@@ -139,7 +139,13 @@ function WebDavServer:delete(request)
             return HttpResponse(403)
         end
     elseif node:is_a(FolderNode) then
-        
+        if node.folder:canDeleteFolder(node) then
+            if node.folder:deleteFolder(node) then
+                return HttpResponse(204)
+            end
+        else
+            return HttpResponse(403)
+        end
     end
 end
 
