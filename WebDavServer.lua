@@ -16,6 +16,8 @@ function WebDavServer:init(folder,...)
         local method = request.method
         if method == "GET" then
             return self:get(request)
+        elseif method == "PUT" then
+            return self:put(request)
         elseif method == "MKCOL" then
             return self:mkcol(request)
         elseif method == "OPTIONS" then
@@ -42,10 +44,52 @@ function WebDavServer:get(request)
     end
     
     if not node:is_a(FileNode) then
-        return HttpResponse(501)
+        return HttpResponse(405,"","Allow",self:getAllow(node))
     end
     
     return HttpGetResponse(node)
+end
+
+function WebDavServer:put(request)
+    local node = self.folder:get(request.path)
+    local content = request.body
+    if node and node:is_a(FileNode) then
+        -- attempt to update the file
+        if not node:canWrite() then
+            return HttpResponse(403)
+        elseif node:write(content) then
+            return HttpResponse(200)
+        else
+            return HttpResponse(500)
+        end
+    elseif node then
+        -- invalid node 
+        return HttpResponse(405,"","Allow",self:getAllow(node))
+    else
+        -- attempt to create the file
+        local parts = url.parse_path(request.path)
+        local fileName = parts[#parts]
+        table.remove(parts)
+        table.insert(parts,1,"")
+        local parentPath = table.concat(parts,"/")
+        local parent = self.folder:get(parentPath)
+        if not parent then
+            return HttpResponse(404)
+        end
+        if not parent:canCreateFiles() then
+            return HttpResponse(403)
+        end
+        if not parent:canCreateFile(fileName) then
+            return HttpResponse(415)
+        end
+        local file = parent:createFile(fileName)
+        if file and file:write(content) then
+            return HttpResponse(201)
+        elseif file then
+            parent:deleteFile(file)
+        end
+        return HttpResponse(500)
+    end
 end
 
 -- https://msdn.microsoft.com/en-us/library/aa142923(v=exchg.65).aspx
@@ -53,7 +97,7 @@ function WebDavServer:mkcol(request)
     local path = request.path
     local node = self.folder:get(path)
     if node then
-        return HttpResponse(405,"",self:getAllow(node)) -- folder already exists
+        return HttpResponse(405,"","Allow",self:getAllow(node)) -- folder already exists
     end
     local parts = url.parse_path(path)
     local folderName = parts[#parts]
@@ -65,25 +109,33 @@ function WebDavServer:mkcol(request)
     if not parent then
         return HttpResponse(409,"Parent must be created before child.") -- conflict parent must be created first
     end
-    if not parent:canCreateFolder() then
+    if not parent:canCreateFolders() then
         return HttpResponse(403)
     end
-    local validName,created = parent:createFolder(folderName)
-    if not validName then
+    if parent:canCreateFolder(folderName) then
+        if parent:createFolder(folderName) then
+            return HttpResponse(201)
+        else
+            return HttpResponse(409,"Collection already exists.")
+        end
+    else
         return HttpResponse(422)
-    elseif not created then
-        return HttpResponse(409,"Collection already exists.")
-    end
-    return HttpResponse(201)
+    end 
 end
 
 function WebDavServer:getAllow(node)
     local methods = {"OPTIONS", "PROPFIND"}
     if node:is_a(FileNode) then
         table.insert(methods,"GET")
+        if node:canWrite() then
+            table.insert(methods,"PUT")
+        end
     elseif node:is_a(FolderNode) then
-        if node:canCreateFolder() then
+        if node:canCreateFolders() then
             table.insert(methods,"MKCOL")
+        end
+        if node:canCreateFiles() then
+            table.insert(methods,"PUT")
         end
     end
     return table.concat(methods,", ")
