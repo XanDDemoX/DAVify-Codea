@@ -137,6 +137,22 @@ end
 
 -- interface to provide generic storage
 FileNode = class(FileSystemNode)
+FileNode.getFileName=function(name)
+    assert(type(name)=="string","'name' must be a non null string")
+    local idx = name:find("%.[^%.]*$")
+    if idx then
+        return name:sub(1,idx-1)
+    end
+    return name
+end
+FileNode.getExtension=function(name)
+    assert(type(name)=="string","'name' must be a non null string")
+    local idx = name:find("%.[^%.]*$")
+    if idx then
+        return name:sub(idx)
+    end
+    return ""
+end
 function FileNode:init(name)
     FileSystemNode.init(self,name)
 end
@@ -173,11 +189,11 @@ function FileNode:fullpath()
 end
 
 function FileNode:extension()
-    return self.name:sub(self.name:find("%.[^%.]*$"))
+    return FileNode.getExtension(self.name)
 end
 
 function FileNode:fileName()
-    return self.name:sub(1,self.name:find("%.[^%.]*$")-1)
+    return FileNode.getFileName(self.name)
 end
 
 function FileNode:exists()
@@ -296,7 +312,7 @@ function ProjectFolderNode:canCreateFile(name)
     if not name:find("%.") then
         return false
     end
-    local ext = name:sub(name:find("%.[^%.]*$")):lower()
+    local ext = FileNode.getExtension(name):lower()
     return ext == ".lua"
 end
 
@@ -306,8 +322,7 @@ end
 
 function ProjectFolderNode:createFile(name)
     assert(self:canCreateFile(name))
-    local idx = name:find("%.[^%.]*$")
-    local tabName = name:sub(1,idx-1)
+    local tabName = FileNode.getFileName(name)
     local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
     if result then 
         local file = ProjectFileNode(name)
