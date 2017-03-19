@@ -11,10 +11,8 @@ function setup()
     local documents = ProjectCollectionFolderNode("Documents")
     projects:add(documents)
     for i, name in ipairs(listProjects()) do
-        local idx = name:find(":",1,true)
-        if idx then
-            local colName = name:sub(1,idx-1)
-            local projName = name:sub(idx+1)
+        local projName,colName = parseProjectKey(name)
+        if colName then
             local collection = projects:get(colName)
             if not collection then
                 collection = ProjectCollectionFolderNode(colName)
@@ -22,7 +20,7 @@ function setup()
             end
             collection:add(ProjectFolderNode(projName))
         else
-            documents:add(ProjectFolderNode(name))
+            documents:add(ProjectFolderNode(projName))
         end
     end
     folder:add(projects)
@@ -56,8 +54,6 @@ function setup()
     end
     folder:add(textAssets)
     
-    --local file = folder:get("Text/Test.txt")
-    --print(file.folder:deleteFile(file))
     -- start the server 
     server = WebDavServer(folder, 8080)
     print("starting server...")
