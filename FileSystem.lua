@@ -352,7 +352,7 @@ function ProjectFileNode:tabName()
 end
 
 function ProjectFileNode:canDelete()
-    return self.name:lower() == "info.plist"
+    return self.name:lower() ~= "info.plist"
 end
 
 function ProjectFileNode:delete()
