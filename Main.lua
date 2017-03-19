@@ -5,7 +5,6 @@ function setup()
     -- initialise the virtual file system
     -- create the root folder
     local folder = FolderNode()
-    
     -- create a folder for projects and add all non example projects
     local projects = FolderNode("Projects")
     local documents = ProjectCollectionFolderNode("Documents")
@@ -50,12 +49,14 @@ function setup()
     folder:add(sprites)
     
     -- create a folder for text assests and add all text assets in documents
-    local textAssets = FolderNode("Text")
+    local textAssets = AssetFolderNode("Text")
     for i, name in ipairs(assetList("Documents",TEXT)) do
         textAssets:add(NativeFileNode(string.format("%s.txt",name)))
     end
     folder:add(textAssets)
     
+    --local file = folder:get("Text/Test.txt")
+    --print(file.folder:deleteFile(file))
     -- start the server 
     server = WebDavServer(folder, 8080)
     print("starting server...")
