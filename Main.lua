@@ -1,11 +1,12 @@
 -- WebDavServer
 
 function setup()
-    print("loading project data ...")
+    print("loading project and asset data ...")
     -- initialise the virtual file system
     -- create the root folder
     local folder = FolderNode()
-    -- create a folder for projects and add all non example projects
+    -- create a folder for projects which contains projects organised by collection
+    -- (Documents and Examples unless any custom collections have been created).
     local projects = FolderNode("Projects")
     local documents = ProjectCollectionFolderNode("Documents")
     projects:add(documents)
