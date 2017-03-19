@@ -20,6 +20,8 @@ function WebDavServer:init(folder,...)
             return self:put(request)
         elseif method == "MKCOL" then
             return self:mkcol(request)
+        elseif method == "DELETE" then
+            return self:delete(request)
         elseif method == "OPTIONS" then
             return self:options(request)
         elseif method == "PROPFIND" then
@@ -121,6 +123,24 @@ function WebDavServer:mkcol(request)
     else
         return HttpResponse(422)
     end 
+end
+
+function WebDavServer:delete(request)
+    local node = self.folder:get(request.path)
+    if not node then
+        return HttpResponse(404)
+    end
+    if node:is_a(FileNode) then
+        if node.folder:canDeleteFile(node) then
+            if node.folder:deleteFile(node) then
+                return HttpResponse(204)
+            end
+        else
+            return HttpResponse(403)
+        end
+    elseif node:is_a(FolderNode) then
+        
+    end
 end
 
 function WebDavServer:getAllow(node)
