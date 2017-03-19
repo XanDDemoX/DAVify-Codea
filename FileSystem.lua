@@ -23,6 +23,37 @@ function FolderNode:createFolder(name)
     return nil
 end
 
+function FolderNode:canDeleteFolders()
+    return false
+end
+
+function FolderNode:canDeleteFolder(node)
+    assert(type(node) == "table" and node.is_a and node:is_a(FolderNode),
+    "'file' must not be null and derive from FolderNode")
+    if not self:canDeleteFolders() then
+        return false
+    end
+    return self.nodes[node.name] == node and node:canDelete()
+end
+
+function FolderNode:canDelete()
+    return false
+end
+
+function FolderNode:delete()
+    return false
+end
+
+function FolderNode:deleteFolder(node)
+    assert(type(node) == "table" and node.is_a and node:is_a(FolderNode),
+    "'node' must not be null and derive from FolderNode")
+    assert(self.nodes[node.name]==node,"'node' is not a child of this node")
+    assert(self:canDeleteFolder(node),"'node' cannot be deleted")
+    if node:delete() then
+        self:remove(node)
+    end
+end
+
 function FolderNode:canCreateFiles()
     return false
 end
@@ -49,12 +80,22 @@ function FolderNode:canDeleteFiles()
     return true
 end
 
-function FolderNode:deleteFile(file)
-    assert(type(file) == "table" and file.is_a and file:is_a(FileNode),
+function FolderNode:canDeleteFile(node)
+    assert(type(node) == "table" and node.is_a and node:is_a(FileNode),
     "'file' must not be null and derive from FileNode")
-    assert(self.nodes[file.name]==file,"'file' is not a child of this node")
-    if file:delete() then
-        self:remove(file)
+    if not self:canDeleteFiles() then
+        return false
+    end
+    return self.nodes[node.name] == node and node:canDelete()
+end
+
+function FolderNode:deleteFile(node)
+    assert(type(node) == "table" and node.is_a and node:is_a(FileNode),
+    "'node' must not be null and derive from FileNode")
+    assert(self.nodes[node.name]==node,"'node' is not a child of this node")
+    assert(self:canDeleteFile(node),"'node' cannot be deleted")
+    if node:delete() then
+        self:remove(node)
         return true
     end
     return false
