@@ -11,11 +11,52 @@ function FolderNode:init(name)
     self.nodes = {}
 end
 
-function FolderNode:canCreateFolder()
+function FolderNode:canCreateFolders()
+    return false
+end
+
+function FolderNode:canCreateFolder(name)
     return false
 end
 
 function FolderNode:createFolder(name)
+    return nil
+end
+
+function FolderNode:canCreateFiles()
+    return false
+end
+
+function FolderNode:canCreateFile(name)
+    return false
+end
+
+function FolderNode:createFileNode(name)
+    return nil
+end
+
+function FolderNode:createFile(name)
+    assert(self:canCreateFile(name))
+    local file = self:createFileNode(name)
+    if file:write("") then
+        self:add(file)
+        return file
+    end
+    return nil
+end
+
+function FolderNode:canDeleteFiles()
+    return true
+end
+
+function FolderNode:deleteFile(file)
+    assert(type(file) == "table" and file.is_a and file:is_a(FileNode),
+    "'file' must not be null and derive from FileNode")
+    assert(self.nodes[file.name]==file,"'file' is not a child of this node")
+    if file:delete() then
+        self:remove(file)
+        return true
+    end
     return false
 end
 
@@ -108,7 +149,19 @@ function FileNode:read()
     return nil
 end
 
+function FileNode:canWrite()
+    return false
+end
+
 function FileNode:write(data)
+    return false
+end
+
+function FileNode:canDelete()
+    return false
+end
+
+function FileNode:delete()
     return false
 end
 
@@ -121,6 +174,10 @@ end
 
 function FileNode:extension()
     return self.name:sub(self.name:find("%.[^%.]*$"))
+end
+
+function FileNode:fileName()
+    return self.name:sub(1,self.name:find("%.[^%.]*$")-1)
 end
 
 function FileNode:exists()
@@ -161,11 +218,18 @@ function NativeFileNode:read()
     return content
 end
 
+function NativeFileNode:canWrite()
+    return true
+end
+
 function NativeFileNode:write(data)
     assert(type(data)=="string","'data' must be a string")
-    local stream = self:open("w+")
-    stream:write(data)
-    stream:close()
+    local result, stream = xpcall(self.open,function()end,self,"w+")
+    if stream then
+        stream:write(data)
+        stream:close()
+    end
+    return result
 end
 
 function NativeFileNode:exists()
@@ -179,30 +243,39 @@ function NativeFileNode:exists()
     return false
 end
 
+function NativeFileNode:canDelete()
+    return true
+end
+
+function NativeFileNode:delete()
+    local path = self:nativePath()
+    assert(path ~= nil)
+    return os.remove(path) ~= nil
+end
+
 -- projects
 ProjectCollectionFolderNode = class(FolderNode)
 function ProjectCollectionFolderNode:init(name)
     FolderNode.init(self, name)
 end
 
-function ProjectCollectionFolderNode:canCreateFolder()
+function ProjectCollectionFolderNode:canCreateFolders()
     return true
 end
 
-function ProjectCollectionFolderNode:validFolderName(name)
-    
+function ProjectCollectionFolderNode:canCreateFolder(name)
+    return true
 end
 
 function ProjectCollectionFolderNode:createFolder(name)
-    if not self:validFolderName(name) then
-        return false
-    end
-    
+    assert(self:canCreateFolder(name))
     local result = xpcall(createProject,function() end,string.format("%s:%s",self.name,name))
     if result then
-        self:add(ProjectFolderNode(name))
+        local folder = ProjectFolderNode(name)
+        self:add(folder)
+        return folder
     end
-    return false, result
+    return nil
 end
 
 ProjectFolderNode = class(FolderNode)
@@ -212,6 +285,36 @@ function ProjectFolderNode:init(name)
         self:add(ProjectFileNode(string.format("%s.lua",tabName)))
     end
     self:add(ProjectFileNode("Info.plist"))
+end
+
+function ProjectFolderNode:canCreateFiles()
+    return true
+end
+
+function ProjectFolderNode:canCreateFile(name)
+    assert(type(name)=="string")
+    if not name:find("%.") then
+        return false
+    end
+    local ext = name:sub(name:find("%.[^%.]*$")):lower()
+    return ext == ".lua"
+end
+
+function ProjectFolderNode:createFileNode(name)
+    return ProjectFileNode(name)
+end
+
+function ProjectFolderNode:createFile(name)
+    assert(self:canCreateFile(name))
+    local idx = name:find("%.[^%.]*$")
+    local tabName = name:sub(1,idx-1)
+    local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
+    if result then 
+        local file = ProjectFileNode(name)
+        self:add(file)
+        return file
+    end
+    return nil
 end
 
 ProjectFileNode = class(NativeFileNode)
@@ -227,6 +330,20 @@ function ProjectFileNode:nativePath()
     else
         return string.format("%s/Documents/%s.collection/%s.codea/%s",os.getenv("HOME"),colName,projName,self.name)
     end
+end
+
+function ProjectFileNode:tabName()
+    return string.format("%s:%s",self.folder.name,self:fileName())
+end
+
+function ProjectFileNode:canDelete()
+    return self.name:lower() == "info.plist"
+end
+
+function ProjectFileNode:delete()
+    assert(self:canDelete())
+    local result = xpcall(saveProjectTab,function() end,self:tabName())
+    return result
 end
 
 -- shader
@@ -246,4 +363,23 @@ end
 function ShaderFileNode:nativePath()
     return string.format("%s/Documents/%s.shader/%s",os.getenv("HOME"),self.folder.name,self.name)
 end
+
+-- asset
+AssetFolderNode = class(FolderNode)
+function AssetFolderNode:init(name)
+    FolderNode.init(self,name)
+end
+
+function AssetFolderNode:canCreateFiles()
+    return true
+end
+
+function AssetFolderNode:canCreateFile(name)
+    return true
+end
+
+function AssetFolderNode:createFileNode(name)
+    return NativeFileNode(name)
+end
+
 
