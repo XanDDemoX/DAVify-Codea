@@ -16,7 +16,11 @@ function FolderNode:canCreateFolders()
 end
 
 function FolderNode:canCreateFolder(name)
-    return false
+    assert(type(name)=="string","'name' must not be null and a string.")
+    if not self:canCreateFolders() then
+        return false
+    end
+    return self.nodes[name] == nil
 end
 
 function FolderNode:createFolder(name)
@@ -51,7 +55,9 @@ function FolderNode:deleteFolder(node)
     assert(self:canDeleteFolder(node),"'node' cannot be deleted")
     if node:delete() then
         self:remove(node)
+        return true
     end
+    return false
 end
 
 function FolderNode:canCreateFiles()
@@ -59,7 +65,11 @@ function FolderNode:canCreateFiles()
 end
 
 function FolderNode:canCreateFile(name)
-    return false
+    assert(type(name)=="string")
+    if not self:canCreateFiles() then
+        return false
+    end
+    return self.nodes[name]==nil
 end
 
 function FolderNode:createFileNode(name)
@@ -77,7 +87,7 @@ function FolderNode:createFile(name)
 end
 
 function FolderNode:canDeleteFiles()
-    return true
+    return false
 end
 
 function FolderNode:canDeleteFile(node)
@@ -320,7 +330,7 @@ function ProjectCollectionFolderNode:canCreateFolders()
     return true
 end
 
-function ProjectCollectionFolderNode:canCreateFolder(name)
+function ProjectCollectionFolderNode:canDeleteFolders()
     return true
 end
 
@@ -349,16 +359,14 @@ function ProjectFolderNode:canCreateFiles()
 end
 
 function ProjectFolderNode:canCreateFile(name)
-    assert(type(name)=="string")
+    if not FolderNode.canCreateFile(self,name) then
+        return false
+    end
     if not name:find("%.") then
         return false
     end
     local ext = FileNode.getExtension(name):lower()
     return ext == ".lua"
-end
-
-function ProjectFolderNode:createFileNode(name)
-    return ProjectFileNode(name)
 end
 
 function ProjectFolderNode:createFile(name)
@@ -371,6 +379,15 @@ function ProjectFolderNode:createFile(name)
         return file
     end
     return nil
+end
+
+function ProjectFolderNode:canDelete()
+    return hasProject(string.format("%s:%s",self.folder.name,self.name))
+end
+
+function ProjectFolderNode:delete()
+   local result = xpcall(deleteProject,function() end,string.format("%s:%s",self.folder.name,self.name))
+   return result
 end
 
 ProjectFileNode = class(NativeFileNode)
@@ -411,10 +428,6 @@ function ShaderFolderNode:init(name)
     self:add(ShaderFileNode("Vertex.vsh"))
 end
 
-function ShaderFolderNode:canDeleteFiles()
-    return false
-end
-
 ShaderFileNode = class(NativeFileNode)
 function ShaderFileNode:init(name)
     NativeFileNode.init(self, name)
@@ -438,7 +451,7 @@ function AssetFolderNode:canCreateFiles()
     return true
 end
 
-function AssetFolderNode:canCreateFile(name)
+function AssetFolderNode:canDeleteFiles()
     return true
 end
 
