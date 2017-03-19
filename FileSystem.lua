@@ -370,9 +370,17 @@ function ShaderFolderNode:init(name)
     self:add(ShaderFileNode("Vertex.vsh"))
 end
 
+function ShaderFolderNode:canDeleteFiles()
+    return false
+end
+
 ShaderFileNode = class(NativeFileNode)
 function ShaderFileNode:init(name)
     NativeFileNode.init(self, name)
+end
+
+function ShaderFileNode:canDelete()
+    return false
 end
 
 function ShaderFileNode:nativePath()
