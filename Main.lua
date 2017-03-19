@@ -35,7 +35,7 @@ function setup()
     folder:add(shaders)
     
     -- create a folder for sprites and add all sprites in documents
-    local sprites = FolderNode("Sprites")
+    local sprites = AssetFolderNode("Sprites")
     for i, name in ipairs(assetList("Documents",SPRITES)) do
         local imgs = {
             NativeFileNode(string.format("%s.png",name)),
