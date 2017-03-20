@@ -205,7 +205,7 @@ function WebDavServer:propFind(request)
     local date = self.date
     for i,node in ipairs(nodes) do
         xml:elem("response"):push()
-            xml:elem("href",url.escape(node:fullpath()))
+            xml:elem("href",node:fullpath())
             xml:elem("propstat"):push()
                 xml:elem("prop"):push()
                     xml:elem("creationdate", date)
