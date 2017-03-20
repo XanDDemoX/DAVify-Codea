@@ -79,11 +79,8 @@ end
 function FolderNode:createFile(name)
     assert(self:canCreateFile(name))
     local file = self:createFileNode(name)
-    if file:write("") then
-        self:add(file)
-        return file
-    end
-    return nil
+    self:add(file)
+    return file
 end
 
 function FolderNode:canDeleteFiles()
@@ -351,10 +348,15 @@ function ProjectFolderNode:init(name)
     for i,tabName in ipairs(listProjectTabs(name)) do
         self:add(ProjectFileNode(string.format("%s.lua",tabName)))
     end
-    self:add(ProjectFileNode("Info.plist"))
+    local plist = ProjectFileNode("Info.plist")
+    self:add(plist)
 end
 
 function ProjectFolderNode:canCreateFiles()
+    return true
+end
+
+function ProjectFolderNode:canDeleteFiles()
     return true
 end
 
@@ -366,19 +368,24 @@ function ProjectFolderNode:canCreateFile(name)
         return false
     end
     local ext = FileNode.getExtension(name):lower()
-    return ext == ".lua"
+    return ext == ".lua" or name:lower() == "info.plist"
+end
+
+function ProjectFolderNode:createFileNode(name)
+    return ProjectFileNode(name)
 end
 
 function ProjectFolderNode:createFile(name)
-    assert(self:canCreateFile(name))
-    local tabName = FileNode.getFileName(name)
-    local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
-    if result then 
-        local file = ProjectFileNode(name)
-        self:add(file)
-        return file
+    local node = FolderNode.createFile(self,name)
+    if name:lower() ~= "info.plist" then
+        local tabName = FileNode.getFileName(name)
+        local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
+        if not result then 
+            self:remove(node)
+            return nil
+        end
     end
-    return nil
+    return node
 end
 
 function ProjectFolderNode:canDelete()
@@ -410,13 +417,16 @@ function ProjectFileNode:tabName()
 end
 
 function ProjectFileNode:canDelete()
-    return self.name:lower() ~= "info.plist"
+    return true
 end
 
 function ProjectFileNode:delete()
     assert(self:canDelete())
-    local result = xpcall(saveProjectTab,function() end,self:tabName())
-    return result
+    if self.name:lower() ~= "info.plist" then
+        local result = xpcall(saveProjectTab,function() end,self:tabName())
+        return result
+    end
+    return true
 end
 
 -- shader
