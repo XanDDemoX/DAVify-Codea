@@ -433,7 +433,7 @@ end
 function ProjectFileNode:delete()
     assert(self:canDelete())
     if self.name:lower() ~= "info.plist" then
-        local result = xpcall(saveProjectTab,function() end,self:tabName())
+        local result = xpcall(saveProjectTab,function() end,self:tabName(),nil)
         return result
     end
     return true
