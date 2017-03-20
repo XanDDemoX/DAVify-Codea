@@ -223,11 +223,11 @@ function WebDavServer:propFind(request)
             xml:elem("href",node:fullpath())
             xml:elem("propstat"):push()
                 xml:elem("prop"):push()
-                    xml:elem("creationdate", date)
+                    xml:elem("creationdate", node.created)
                     if node:is_a(FolderNode) then
                         xml:elem("resourcetype"):push():elem("collection"):pop()
                     else
-                        xml:elem("getlastmodified", date)
+                        xml:elem("getlastmodified", node.modified)
                         xml:elem("getcontentlength", node:size())
                     end
                 xml:pop()
