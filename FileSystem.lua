@@ -2,6 +2,12 @@
 FileSystemNode = class()
 function FileSystemNode:init(name)
     self.name = name
+    self.created = os.date("!%Y-%m-%dT%X+00:00")
+    self.modified = self.created
+end
+
+function FileSystemNode:setModified()
+    self.modified = os.date("!%Y-%m-%dT%X+00:00")
 end
 
 -- implements a folder tree. Paths/Urls to files are case-sensitive.
@@ -129,6 +135,7 @@ function FolderNode:add(node)
     assert(self.nodes[node.name] == nil,string.format("Node '%s' already exists.",node.name))
     self.nodes[node.name] = node
     node.folder = self
+    self:setModified()
     return self
 end
 
@@ -142,11 +149,13 @@ function FolderNode:remove(node)
         assert(item == node,"Node is not a child of this node.")
         self.nodes[node.name] = nil
         node.folder = nil
+        self:setModified()
     elseif typ == "string" then
         local n = self.nodes[node]
         assert(n~=nil,"Node does not exist.")
         self.nodes[node] = nil
         n.folder = nil
+        self:setModified()
     end
 end
 
@@ -292,6 +301,7 @@ function NativeFileNode:write(data)
     if stream then
         stream:write(data)
         stream:close()
+        self:setModified()
     end
     return result
 end
