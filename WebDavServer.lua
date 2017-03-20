@@ -16,6 +16,8 @@ function WebDavServer:init(folder,...)
         local method = request.method
         if method == "GET" then
             return self:get(request)
+        elseif method == "HEAD" then
+            return self:head(request)
         elseif method == "PUT" then
             return self:put(request)
         elseif method == "MKCOL" then
@@ -50,6 +52,19 @@ function WebDavServer:get(request)
     end
     
     return HttpGetResponse(node)
+end
+
+function WebDavServer:head(request) 
+    local node = self.folder:get(request.path)
+    if not node then
+        return HttpResponse(404)
+    end
+    
+    if not node:is_a(FileNode) then
+        return HttpResponse(405,"","Allow",self:getAllow(node))
+    end
+    
+    return HttpHeadResponse(node)
 end
 
 function WebDavServer:put(request)
