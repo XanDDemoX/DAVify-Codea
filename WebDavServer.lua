@@ -28,6 +28,12 @@ function WebDavServer:init(folder,...)
             return self:options(request)
         elseif method == "PROPFIND" then
             return self:propFind(request)
+        elseif method == "PROPPATCH" then
+            return self:propPatch(request)
+        elseif method == "LOCK" then
+            return self:lock(request)
+        elseif method == "UNLOCK" then
+            return self:unlock(request)
         else
             local node = self.folder:get(request.path)
             if not node then
@@ -64,7 +70,7 @@ function WebDavServer:head(request)
         return HttpResponse(405,"","Allow",self:getAllow(node))
     end
     
-    return HttpHeadResponse(node)
+    return HttpResponse(200)
 end
 
 function WebDavServer:put(request)
@@ -75,7 +81,7 @@ function WebDavServer:put(request)
         if not node:canWrite() then
             return HttpResponse(403)
         elseif node:write(content) then
-            return HttpResponse(200)
+            return HttpResponse(204)
         else
             return HttpResponse(500)
         end
@@ -185,7 +191,9 @@ end
 function WebDavServer:options(request)
     local node = self.folder:get(request.path)
     if not node then
-        return HttpResponse(404)
+        -- if the node is not found just return the root. This also just so happens to fix
+        -- windows deciding the server doesn't exist because desktop.ini is not found.
+        return HttpResponse(200,"","Allow",self:getAllow(self.folder))
     end
     return HttpResponse(200,"","Allow",self:getAllow(node))
 end
@@ -236,4 +244,93 @@ function WebDavServer:propFind(request)
         :pop()
     end
     return HttpResponse(207,xml:toString(),"Content-Type",'application/xml; charset="utf-8"')
+end
+
+function WebDavServer:isWindowsClient(request)
+    local userAgent = request.header["User-Agent"] or ""
+    return userAgent:lower():find("microsoft-webdav",1,true) ~= nil
+end
+
+function WebDavServer:propPatch(request)
+
+    if self:isWindowsClient(request) then
+        local node = self.folder:get(request.path)
+        if not node then
+            return HttpResponse(404)
+        end
+        if node:is_a(FolderNode) then
+            return HttpResponse(405)
+        end
+        -- observed with wireshark + apache 
+        local xml = XmlBuilder()
+        :ns("D")
+        :elem("multistatus")
+        :attr("xmlns:D","DAV:")
+        :attr("xmlns:ns1","urn:schemas-microsoft.com:")
+        :attr("xmlns:ns0","DAV:")
+        :push()
+        
+        xml:elem("response"):push()
+        xml:elem("href",node:fullpath())
+        xml:elem("propstat"):push()
+        xml:elem("prop"):push()
+            local ns = xml:getNamespace()
+            xml:ns("ns1")
+            xml:elem("Win32CreationTime")
+            xml:elem("Win32LastAccessTime")
+            xml:elem("Win32LastModifiedTime")
+            xml:elem("Win32FileAttributes")
+            xml:ns(ns)
+        xml:pop()
+        xml:elem("status","HTTP/1.1 200 OK")
+        return HttpResponse(207,xml:toString(),"Content-Type",'application/xml; charset="utf-8"')
+    end
+    return HttpResponse(405)
+end
+
+function WebDavServer:lock(request)
+
+    local node = self.folder:get(request.path)
+    if not node or not node:is_a(FileNode) then
+        return HttpResponse(405) 
+    end
+    local body = request.body
+    local parser = XmlParser()
+    parser:ns("D")
+    local lockType = parser:tag(parser:content("locktype",body))
+    local lockScope = parser:tag(parser:content("lockscope",body))
+    local owner = parser:content("href",parser:content("owner",body))
+    local timeout = request.header["Timeout"]
+    if not lockType or not lockScope or not owner or not timeout then
+        return HttpResponse(400)
+    end
+    
+    -- send a 'legitimate’ response for tempermental clients which can't function without locking. (a.k.a Windows)
+    local xml = XmlBuilder()
+    xml:ns("D")
+    xml:elem("prop"):attr("xmlns:D","DAV:"):push()
+    xml:elem("lockdiscovery"):push()
+    xml:elem("activelock"):push()
+    
+    xml:elem("locktype"):push():elem(lockType):pop()
+    xml:elem("lockscope"):push():elem(lockScope):pop()
+    xml:elem("depth","infinity")
+    
+    -- ns0 observed with wireshark + apache. Win7/8 compat?
+    local ns = xml:getNamespace()
+    xml:ns("ns0")
+    xml:elem("owner"):push():elem("href",owner):pop()
+    xml:ns(ns)
+    
+    xml:elem("timeout",timeout)
+    xml:elem("locktoken"):push():elem("href","opaquelocktoken:01234567-89ab-cdef-0123-456789abcdef"):pop()
+
+    return HttpResponse(200,xml:toString(),
+        "Content-Type",'application/xml; charset="utf-8"',
+        "Lock-Token","<opaquelocktoken:01234567-89ab-cdef-0123-456789abcdef>"
+    )
+end
+
+function WebDavServer:unlock(request)
+    return HttpResponse(204)
 end
