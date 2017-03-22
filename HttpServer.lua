@@ -9,8 +9,8 @@ function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
     -- automatic is default
     self.port = port or 0
     self.url = ""
-    -- 1/6000th of a second i.e 1/100th of a frame. Can't block for too long because it will kill the draw loop.
-    self.timeout = timeout or 1/6000
+    -- 1/600th of a second i.e 1/10th of a frame. Can't block for too long because it will kill the draw loop.
+    self.timeout = timeout or 1/600
     -- 10 seconds, should be more than enough time to receive a request and send a response for light use
     self.clientTimeout = clientTimeout or 10
     self.clientLimit = clientLimit or 10
