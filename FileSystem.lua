@@ -403,6 +403,7 @@ function ProjectFolderNode:canDelete()
 end
 
 function ProjectFolderNode:delete()
+   assert(self:canDelete())
    local result = xpcall(deleteProject,function() end,string.format("%s:%s",self.folder.name,self.name))
    return result
 end
