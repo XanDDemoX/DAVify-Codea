@@ -382,8 +382,7 @@ function ProjectFolderNode:init(name)
     for i,tabName in ipairs(listProjectTabs(name)) do
         self:add(ProjectFileNode(string.format("%s.lua",tabName)))
     end
-    local plist = ProjectFileNode("Info.plist")
-    self:add(plist)
+    self:add(ProjectFileNode("Info.plist"))
 end
 
 function ProjectFolderNode:canCreateFiles()
@@ -402,7 +401,7 @@ function ProjectFolderNode:canCreateFile(name)
         return false
     end
     local ext = Path.getExtension(name):lower()
-    return ext == ".lua" or name:lower() == "info.plist"
+    return ext == ".lua" or name == "Info.plist"
 end
 
 function ProjectFolderNode:createFileNode(name)
@@ -410,16 +409,14 @@ function ProjectFolderNode:createFileNode(name)
 end
 
 function ProjectFolderNode:createFile(name)
-    local node = FolderNode.createFile(self,name)
-    if name:lower() ~= "info.plist" then
+    if name ~= "Info.plist" then
         local tabName = Path.getFileNameNoExtension(name)
         local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
         if not result then 
-            self:remove(node)
             return nil
         end
     end
-    return node
+    return FolderNode.createFile(self,name)
 end
 
 function ProjectFolderNode:canDelete()
@@ -447,6 +444,13 @@ function ProjectFileNode:nativePath()
     end
 end
 
+function ProjectFileNode:write(data)
+    if data == "" and name == "Info.plist" then
+        return true
+    end
+    return NativeFileNode.write(self,data)
+end
+
 function ProjectFileNode:tabName()
     return string.format("%s:%s",self.folder.name,self:fileName())
 end
@@ -460,10 +464,10 @@ function ProjectFileNode:delete()
     -- Nerver actually delete the .plist with os.remove it cannot be recreated. 
     -- Doing so will break the project and cause errors in Codea. When opening/running the project 
     -- and using functions such as listProjectTabs or saveProjectTab. The only fix is to delete the project.
-    if self.name:lower() ~= "info.plist" then
+    if self.name ~= "Info.plist" then
         local result = xpcall(saveProjectTab,function() end,self:tabName(),nil)
         return result
-    end 
+    end
     return true
 end
 
@@ -482,6 +486,10 @@ function ShaderFileNode:init(name)
 end
 
 function ShaderFileNode:canDelete()
+    return false
+end
+
+function ShaderFileNode:delete()
     return false
 end
 
