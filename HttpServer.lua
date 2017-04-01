@@ -1,7 +1,142 @@
--- Generic barebones HTTP 1.1 server which implements recieving requests and sending responses  
+-- Generic barebones HTTP 1.1 listener which implements recieving requests and sending responses  
 -- but doesn't implement any actual HTTP methods.
 -- https://tools.ietf.org/html/rfc2068
+HttpRequest = class()
 
+function HttpRequest:init(method,path,version,header,body)
+    self.method = method:upper()
+    self.path = path
+    self.version = version:upper()
+    self.header = header
+    self.body = body or ""
+end
+
+function HttpRequest:toString()
+    -- reconstruct the request to a full string
+    local str = {self.method," ",self.path," ",self.version,"\r\n"}
+    for k,v in pairs(self.header) do
+        table.insert(str,k)
+        table.insert(str,":")
+        table.insert(str,v)
+        table.insert(str,"\r\n")
+    end
+    table.insert(str,"\r\n")
+    table.insert(str,self.body)
+    return table.concat(str)
+end
+
+-- response
+HttpResponse = class()
+HttpResponse.statuses = packLookup(    
+-- success statuses
+    200,"OK",
+    201,"Created",
+    204,"No Content",
+    207,"Multi Status",
+
+-- client errors
+    400,"Bad Request",
+    403,"Forbidden",
+    404,"Not Found",
+    405,"Method Not Allowed",
+    409,"Conflict",
+    411,"Length Required",
+    412,"Precondition Failed",
+    415,"Unsupported Media Type",
+    422,"Unprocessable Entity",
+
+-- server errors
+    500,"Internal Server Error",
+    501,"Not Implemented",
+    505,"HTTP Version Not Supported",
+    507,"Insufficient Storage"
+)
+
+function HttpResponse:init(status, content,...)
+    assert(status ~= nil, "'status' must be supplied")
+    self.status = status
+    self.message = HttpResponse.statuses[status] or "Unknown Status"
+    self.header = {...}
+    self.content = content or ""
+    -- calculate content length 
+    --local bytes = {string.byte(content,1,-1)}
+    local length = string.len(self.content)
+    if length > 0 then
+        table.insert(self.header,"Content-Length")
+        table.insert(self.header,tostring(length))
+    end
+end
+
+function HttpResponse:getHeader()
+    local str = {string.format("HTTP/1.1 %i %s\r\n", self.status, self.message)}
+    local header = self.header
+    -- construct header 
+    for i=1,#header,2 do
+        local k,v = header[i],header[i+1]
+        table.insert(str,k)
+        table.insert(str,": ")
+        table.insert(str,tostring(v))
+        table.insert(str,"\r\n")
+    end
+    table.insert(str,"\r\n")
+    return table.concat(str)
+end
+
+function HttpResponse:getContent()
+    return self.content
+end
+
+function HttpResponse:sendHeader(client)
+    client:send(self:getHeader())
+end
+
+function HttpResponse:sendContent(client)
+    client:send(self:getContent())
+end
+
+function HttpResponse:toString()
+    return self:getHeader()..self:getContent()
+end
+
+--https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
+MimeType = {}
+local extensionToMime = packLookup(
+    ".fsh","text/plain",
+    ".lua","text/plain",
+    ".plist",'application/xml; charset="utf-8"',
+    ".png","image/png",
+    ".txt",'text/plain',
+    ".vsh","text/plain",
+    ".xml",'application/xml; charset="utf-8"'
+)
+
+MimeType.getByExtension = function(extension)
+    assert(type(extension) == "string")
+    extension = extension:lower()
+    return extensionToMime[extension] or "application/octet-stream"
+end
+
+-- a GET response which serves a FileNode
+HttpGetResponse = class(HttpResponse)
+function HttpGetResponse:init(file)
+    assert(type(file)=="table" and file.is_a and file:is_a(FileNode),
+    "'file' must not be null and derive from FileNode")
+    
+    HttpResponse.init(self,200)
+    self.file = file
+    table.insert(self.header,"Content-Length")
+    table.insert(self.header,tostring(file:size()))
+    
+    -- for now
+    table.insert(self.header,"Content-Type")
+    table.insert(self.header,MimeType.getByExtension(file:extension()))
+end
+
+function HttpGetResponse:getContent()
+    return self.file:read()
+end
+
+-- server
 HttpServer = class()
 
 function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
