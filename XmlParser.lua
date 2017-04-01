@@ -185,3 +185,19 @@ function XmlNode:nodes(name)
     end
     return self._nodes
 end
+
+function XmlNode:toString(builder)
+    assert(type(builder) == "table" and builder.is_a and builder:is_a(XmlBuilder))
+    builder:elem(self:name(),self:value())
+    for name, values in pairs(self:attributes()) do
+        for i,value in ipairs(values) do
+            builder:attr(name,value)
+        end
+    end
+    builder:push()
+    for i,node in ipairs(self:nodes()) do
+        node:toString(builder)
+    end
+    builder:pop()
+end
+
