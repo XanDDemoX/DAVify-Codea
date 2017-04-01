@@ -111,7 +111,6 @@ end
 XmlNode = class()
 function XmlNode:init(name)
     self._name = name
-    self._value = ""
 end
 
 function XmlNode:name()
