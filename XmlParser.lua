@@ -200,4 +200,3 @@ function XmlNode:toString(builder)
     end
     builder:pop()
 end
-
