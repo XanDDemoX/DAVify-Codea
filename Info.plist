@@ -9,8 +9,7 @@
 		<string>Global</string>
 		<string>Main</string>
 		<string>FileSystem</string>
-		<string>XmlBuilder</string>
-		<string>XmlParser</string>
+		<string>Xml</string>
 		<string>HttpServer</string>
 		<string>WebDavServer</string>
 	</array>
