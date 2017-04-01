@@ -1,3 +1,31 @@
+Xml = {}
+Xml.escape = function(value)
+    value = string.gsub(value, "&", "&amp;") -- '&' -> "&amp;"
+    value = string.gsub(value, "<", "&lt;") -- '<' -> "&lt;"
+    value = string.gsub(value, ">", "&gt;") -- '>' -> "&gt;"
+    value = string.gsub(value, '"', "&quot;") -- '"' -> "&quot;"
+    value = string.gsub(value, "([^%w%&%;%p%\t% ])",
+        function(c)
+            return string.format("&#x%X;", string.byte(c))
+        end)
+    return value
+end
+Xml.unescape = function(value)
+    value = string.gsub(value, "&#x([%x]+)%;",
+        function(h)
+            return string.char(tonumber(h, 16))
+        end)
+    value = string.gsub(value, "&#([0-9]+)%;",
+        function(h)
+            return string.char(tonumber(h, 10))
+        end)
+    value = string.gsub(value, "&quot;", '"')
+    value = string.gsub(value, "&apos;", "'")
+    value = string.gsub(value, "&gt;", ">")
+    value = string.gsub(value, "&lt;", "<")
+    value = string.gsub(value, "&amp;", "&")
+    return value
+end
 
 XmlNode = class()
 function XmlNode:init(name)
@@ -126,35 +154,6 @@ function XmlParser:content(elem,xml)
 end
 
 -- https://github.com/Cluain/Lua-Simple-XML-Parser/blob/master/xmlSimple.lua
-function XmlParser:escape(value)
-    value = string.gsub(value, "&", "&amp;") -- '&' -> "&amp;"
-    value = string.gsub(value, "<", "&lt;") -- '<' -> "&lt;"
-    value = string.gsub(value, ">", "&gt;") -- '>' -> "&gt;"
-    value = string.gsub(value, '"', "&quot;") -- '"' -> "&quot;"
-    value = string.gsub(value, "([^%w%&%;%p%\t% ])",
-        function(c)
-            return string.format("&#x%X;", string.byte(c))
-        end)
-    return value
-end
-
-function XmlParser:unescape(value)
-    value = string.gsub(value, "&#x([%x]+)%;",
-        function(h)
-            return string.char(tonumber(h, 16))
-        end)
-    value = string.gsub(value, "&#([0-9]+)%;",
-        function(h)
-            return string.char(tonumber(h, 10))
-        end)
-    value = string.gsub(value, "&quot;", '"')
-    value = string.gsub(value, "&apos;", "'")
-    value = string.gsub(value, "&gt;", ">")
-    value = string.gsub(value, "&lt;", "<")
-    value = string.gsub(value, "&amp;", "&")
-    return value
-end
-
 function XmlParser:parse(xml)
     local stack = {}
     local cur = XmlNode()
@@ -168,13 +167,13 @@ function XmlParser:parse(xml)
         if not ignore then
             local content = xml:sub(i,j-1)
             if not content:find("^%s*$") then
-                stack[#stack]:value((cur:value() or "")..self:unescape(content))
+                stack[#stack]:value((cur:value() or "")..Xml.unescape(content))
             end
             if start == "" or empty == "/" then
                 local node = XmlNode(name)
                 -- parse attributes
                 string.gsub(args, '(%w+)=(["'.."'])(.-)%2", function(key, _, value)
-                    node:attribute(key, self:unescape(value))
+                    node:attribute(key, Xml.unescape(value))
                 end)
                 if start == "" then
                     table.insert(stack, node)
