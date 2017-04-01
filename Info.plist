@@ -11,8 +11,6 @@
 		<string>FileSystem</string>
 		<string>XmlBuilder</string>
 		<string>XmlParser</string>
-		<string>HttpRequest</string>
-		<string>HttpResponse</string>
 		<string>HttpServer</string>
 		<string>WebDavServer</string>
 	</array>
