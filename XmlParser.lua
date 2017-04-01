@@ -175,7 +175,13 @@ function XmlNode:nodes(name)
         return {}
     end
     if name then
-    
+        local nodes = {}
+        for i,node in ipairs(self._nodes) do
+            if node:name() == name then
+                table.insert(nodes,node)
+            end
+        end
+        return nodes
     end
     return self._nodes
 end
