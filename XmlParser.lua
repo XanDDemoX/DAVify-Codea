@@ -160,6 +160,16 @@ function XmlNode:attribute(name,value,index)
     end
 end
 
+function XmlNode:attributes(name)
+    if not self._attrib then
+        return {}
+    end
+    if name then
+        return self._attrib[name] or {}
+    end
+    return self._attrib
+end
+
 function XmlNode:nodes(name)
     if not self._nodes then
         return {}
