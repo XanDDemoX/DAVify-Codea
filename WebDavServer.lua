@@ -4,6 +4,7 @@
 -- https://tools.ietf.org/html/rfc2616
 -- http://www.webdav.org/specs/rfc3648.html
 -- http://stackoverflow.com/questions/10144148/example-of-a-minimal-request-response-cycle-for-webdav
+-- http://sabre.io/dav/clients/windows/
 
 
 WebDavServer = class(HttpServer)
@@ -22,6 +23,8 @@ function WebDavServer:init(folder,...)
             return self:put(request)
         elseif method == "MKCOL" then
             return self:mkcol(request)
+        elseif method == "MOVE" then
+            return self:move(request)
         elseif method == "DELETE" then
             return self:delete(request)
         elseif method == "OPTIONS" then
@@ -90,11 +93,7 @@ function WebDavServer:put(request)
         return HttpResponse(405,"","Allow",self:getAllow(node))
     else
         -- attempt to create the file
-        local parts = url.parse_path(request.path)
-        local fileName = parts[#parts]
-        table.remove(parts)
-        table.insert(parts,1,"")
-        local parentPath = table.concat(parts,"/")
+        local parentPath,fileName = Path.splitPathAndName(request.path)
         local parent = self.folder:get(parentPath)
         if not parent then
             return HttpResponse(404)
@@ -122,12 +121,7 @@ function WebDavServer:mkcol(request)
     if node then
         return HttpResponse(405,"","Allow",self:getAllow(node)) -- folder already exists
     end
-    local parts = url.parse_path(path)
-    local folderName = parts[#parts]
-    
-    table.remove(parts)
-    table.insert(parts,1,"")
-    local parentPath = table.concat(parts,"/")
+    local parentPath,folderName = Path.splitPathAndName(path)
     local parent = self.folder:get(parentPath)
     if not parent then
         return HttpResponse(409,"Parent must be created before child.") -- conflict parent must be created first
@@ -144,6 +138,148 @@ function WebDavServer:mkcol(request)
     else
         return HttpResponse(422)
     end 
+end
+
+function WebDavServer:getDestinationServerAndPath(request)
+    local destination = request.header["Destination"]
+    if destination then
+        local server, path = destination:match("([^%s/]-//[^/]-)(/.*)")
+        return server and string.format("%s/",server),path
+    end
+    return nil
+end
+
+function WebDavServer:copyNode(source, target, xml)
+    local result = true
+    if source:is_a(FolderNode) then
+        local folder = target:get(source.name)
+        if not folder and target:canCreateFolders() and target:canCreateFolder(source.name) then
+            folder = target:createFolder(source.name)
+        end
+        if folder then
+            for i,node in ipairs(source:getNodes()) do
+                if not self:copyNode(node, folder, xml) then
+                    result = false
+                end
+            end
+        end
+    elseif source:is_a(FileNode) then
+        local file = target:get(source.name)
+        if not file and target:canCreateFiles() and target:canCreateFile(source.name) then
+            file = target:createFile(source.name)
+        end
+        if file and file:write(source:read()) then
+        else
+            result = false
+        end
+    else
+        return false
+    end
+    return result
+end
+
+function WebDavServer:move(request)
+    local server, destination = self:getDestinationServerAndPath(request)
+    if not server or not destination then 
+        return HttpResponse(400)
+    end
+    -- server to server transfer disabled to avoid implementing a client as well
+    if server ~= self.url then
+        return HttpResponse(405)
+    end
+    if request.path == destination then
+        return HttpResponse(403)
+    end
+    local node = self.folder:get(request.path)
+    if not node then 
+        return HttpResponse(404)
+    end
+    local overwrite = request.header["Overwrite"] or ""
+    local destNode = self.folder:get(destination)
+    if overwrite:upper() == "F" and destNode ~= nil then
+        return HttpResponse(412)
+    end
+    if node:is_a(FolderNode) then
+        local folder = node.folder
+        if not folder:canDeleteFolder(node) then
+            return HttpResponse(403)
+        end
+        
+        -- depth must be infinity when moving
+        local depth = request.header["Depth"] or "infinity"
+        depth = depth:lower()
+        if depth ~= "infinity" then
+            return HttpResponse(409)
+        end
+        if not destNode then
+            local parentPath,folderName = Path.splitPathAndName(destination)
+            local parent = self.folder:get(parentPath)
+            if not parent then
+                return HttpResponse(409)
+            end
+            if not parent:canCreateFolders() then
+                return HttpResponse(403)
+            end
+            if parent:canCreateFolder(folderName) then
+                local childFolder = parent:createFolder(folderName)
+                if childFolder then
+                    destNode = childFolder
+                else
+                    return HttpResponse(500)
+                end
+            else
+                return HttpResponse(422)
+            end
+        end
+        
+        local xml = XmlBuilder()
+        xml:ns("D")
+        :elem("multistatus")
+        :attr("xmlns:D","DAV:")
+        :push()
+        local copied = true
+        for i,child in ipairs(node:getNodes()) do
+            if not self:copyNode(child,destNode,xml) then
+                copied = false
+            end
+        end
+        if copied then -- only delete if all nodes were copied successfully
+            folder:deleteFolder(node)
+        end
+        return HttpResponse(207,xml:toString(),"Content-Type",'application/xml; charset="utf-8"')
+    elseif node:is_a(FileNode) then
+        local folder = node.folder
+        if not folder:canDeleteFile(node) then
+            return HttpResponse(403)
+        end
+        if destNode then
+            if destNode:write(node:read()) then
+                if folder:deleteFile(node) then
+                    return HttpResponse(204)
+                end
+            end
+        else
+            local parentPath,fileName = Path.splitPathAndName(destination)
+            local parent = self.folder:get(parentPath)
+            if not parent then
+                return HttpResponse(409)
+            end
+            if not parent:canCreateFiles() then
+                return HttpResponse(403)
+            end
+            if not parent:canCreateFile(fileName) then
+                return HttpResponse(415)
+            end
+            local file = parent:createFile(fileName)
+            if file and file:write(node:read()) then
+                if folder:deleteFile(node) then
+                    return HttpResponse(201)
+                end
+            elseif file then
+                parent:deleteFile(file)
+            end
+        end
+    end
 end
 
 function WebDavServer:delete(request)
@@ -254,6 +390,8 @@ end
 function WebDavServer:propPatch(request)
 
     if self:isWindowsClient(request) then
+        -- send a fake response to satisfy the two PROPPATCH requests that 
+        -- the windows client sends during file creation. We don't care about the properties.
         local node = self.folder:get(request.path)
         if not node then
             return HttpResponse(404)
@@ -294,6 +432,8 @@ function WebDavServer:lock(request)
     if not node or not node:is_a(FileNode) then
         return HttpResponse(405) 
     end
+    
+    -- parse properties which need to be sent back
     local body = request.body
     local parser = XmlParser()
     parser:ns("D")
@@ -323,6 +463,9 @@ function WebDavServer:lock(request)
     xml:ns(ns)
     
     xml:elem("timeout",timeout)
+    
+    -- using an obviously fake locktoken so it will hopefully be clear that 
+    -- it is a forged response from the raw packets alone.
     xml:elem("locktoken"):push():elem("href","opaquelocktoken:01234567-89ab-cdef-0123-456789abcdef"):pop()
 
     return HttpResponse(200,xml:toString(),
