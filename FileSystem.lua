@@ -1,3 +1,29 @@
+Path = {}
+Path.splitPathAndName = function(path)
+    assert(type(path)=="string","'path' must be a non null string")
+    local parts = url.parse_path(path)
+    local fileName = parts[#parts]
+    table.remove(parts)
+    table.insert(parts,1,"")
+    return table.concat(parts,"/"), fileName
+end
+Path.getFileNameNoExtension=function(path)
+    assert(type(path)=="string","'path' must be a non null string")
+    local idx = path:find("%.[^%.]*$")
+    if idx then
+        return path:sub(1,idx-1)
+    end
+    return path
+end
+Path.getExtension=function(path)
+    assert(type(path)=="string","'path' must be a non null string")
+    local idx = path:find("%.[^%.]*$")
+    if idx then
+        return path:sub(idx)
+    end
+    return ""
+end
+
 -- base for all file system nodes
 FileSystemNode = class()
 function FileSystemNode:init(name)
@@ -194,22 +220,7 @@ end
 
 -- interface to provide generic storage
 FileNode = class(FileSystemNode)
-FileNode.getFileName=function(name)
-    assert(type(name)=="string","'name' must be a non null string")
-    local idx = name:find("%.[^%.]*$")
-    if idx then
-        return name:sub(1,idx-1)
-    end
-    return name
-end
-FileNode.getExtension=function(name)
-    assert(type(name)=="string","'name' must be a non null string")
-    local idx = name:find("%.[^%.]*$")
-    if idx then
-        return name:sub(idx)
-    end
-    return ""
-end
+
 function FileNode:init(name)
     FileSystemNode.init(self,name)
 end
@@ -246,11 +257,11 @@ function FileNode:fullpath()
 end
 
 function FileNode:extension()
-    return FileNode.getExtension(self.name)
+    return Path.getExtension(self.name)
 end
 
 function FileNode:fileName()
-    return FileNode.getFileName(self.name)
+    return Path.getFileNameNoExtension(self.name)
 end
 
 function FileNode:exists()
@@ -333,10 +344,6 @@ function ProjectCollectionFolderNode:init(name)
     FolderNode.init(self, name)
 end
 
-function ProjectCollectionFolderNode:canCreateFolders()
-    return true
-end
-
 function ProjectCollectionFolderNode:canDeleteFolders()
     return true
 end
@@ -377,7 +384,7 @@ function ProjectFolderNode:canCreateFile(name)
     if not name:find("%.") then
         return false
     end
-    local ext = FileNode.getExtension(name):lower()
+    local ext = Path.getExtension(name):lower()
     return ext == ".lua" or name:lower() == "info.plist"
 end
 
@@ -388,7 +395,7 @@ end
 function ProjectFolderNode:createFile(name)
     local node = FolderNode.createFile(self,name)
     if name:lower() ~= "info.plist" then
-        local tabName = FileNode.getFileName(name)
+        local tabName = Path.getFileNameNoExtension(name)
         local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
         if not result then 
             self:remove(node)
@@ -433,10 +440,13 @@ end
 
 function ProjectFileNode:delete()
     assert(self:canDelete())
+    -- Nerver actually delete the .plist with os.remove it cannot be recreated. 
+    -- Doing so will break the project and cause errors in Codea. When opening/running the project 
+    -- and using functions such as listProjectTabs or saveProjectTab. The only fix is to delete the project.
     if self.name:lower() ~= "info.plist" then
         local result = xpcall(saveProjectTab,function() end,self:tabName(),nil)
         return result
-    end
+    end 
     return true
 end
 
