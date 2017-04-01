@@ -348,6 +348,23 @@ function ProjectCollectionFolderNode:canDeleteFolders()
     return true
 end
 
+function ProjectCollectionFolderNode:canCreateFolders()
+    return true
+end
+
+function ProjectCollectionFolderNode:canCreateFolder(name)
+    if not FolderNode.canCreateFolder(self,name) then
+        return false
+    end
+    for i,key in ipairs(listProjects()) do
+        local projName,colName = parseProjectKey(key)
+        if projName == name then
+            return false
+        end
+    end
+    return true
+end
+
 function ProjectCollectionFolderNode:createFolder(name)
     assert(self:canCreateFolder(name))
     local result = xpcall(createProject,function() end,string.format("%s:%s",self.name,name))
