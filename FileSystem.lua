@@ -397,22 +397,59 @@ function ProjectFolderNode:canCreateFile(name)
     if not FolderNode.canCreateFile(self,name) then
         return false
     end
-    if not name:find("%.") then
-        return false
-    end
-    local ext = Path.getExtension(name):lower()
-    return ext == ".lua" or name == "Info.plist"
+    return Path.getExtension(name) == ".lua" or name == "Info.plist"
 end
 
 function ProjectFolderNode:createFileNode(name)
     return ProjectFileNode(name)
 end
 
+function ProjectFolderNode:readInfoXml()
+    return Xml.parse(self:get("Info.plist"):read())
+end
+
+function ProjectFolderNode:writeInfoXml(xml)
+    local builder = XmlBuilder(true, { minIndentDepth=1 }) -- pretty print similar to Codea
+    xml:emit(builder)
+    return self:get("Info.plist"):write(builder:toString())
+end
+
+function ProjectFolderNode:saveTab(tabName,content)
+    -- read plist xml before saveProjectTab so that buffer order can be synchronised  
+    -- so that it contains the right tabs whilst keeping the existing tabs in the user specified order
+    local xml = self:readInfoXml()
+    local result = xpcall(saveProjectTab,function() end, string.format("%s:%s",self.name,tabName),content or nil)
+    if not result then
+        return false
+    end
+    local tabs = listProjectTabs(self.name)
+    for i,tab in ipairs(tabs) do
+        projTabs[tab]=tab
+    end
+    -- get the buffer order array element
+    local bufferOrder = xml:node("plist"):node("dict"):after(function(node)
+        return node:name() == "key" and node:value() == "Buffer Order"
+    end)
+    -- remove tabs which dont exist in project
+    for i,tab in ipairs(bufferOrder:nodes()) do
+        if not tabs[tab:name()] then
+            tabs:remove(tab)
+        end
+    end
+    -- add tabs which exist in project but don't exist in buffer order
+    for i,tab in ipairs(tabs) do
+        local hasNode = tabs:query(function(node) return node:value() == tab end) ~= XmlNode.null
+        if not hasNode then
+            tabs:add(XmlNode("string",tab))
+        end
+    end
+    return self:writeInfoXml(xml)
+end
+
 function ProjectFolderNode:createFile(name)
+    assert(self:canCreateFile(name))
     if name ~= "Info.plist" then
-        local tabName = Path.getFileNameNoExtension(name)
-        local result = xpcall(saveProjectTab,function() end,string.format("%s:%s",self.name,tabName),"")
-        if not result then 
+        if not self:saveTab(Path.getFileNameNoExtension(name),"") then 
             return nil
         end
     end
@@ -445,6 +482,7 @@ function ProjectFileNode:nativePath()
 end
 
 function ProjectFileNode:write(data)
+    -- 'Deleted' plist restore, avoid writing 0 bytes.
     if data == "" and name == "Info.plist" then
         return true
     end
@@ -461,12 +499,11 @@ end
 
 function ProjectFileNode:delete()
     assert(self:canDelete())
-    -- Nerver actually delete the .plist with os.remove it cannot be recreated. 
-    -- Doing so will break the project and cause errors in Codea. When opening/running the project 
-    -- and using functions such as listProjectTabs or saveProjectTab. The only fix is to delete the project.
+    -- Nerver actually delete the .plist with os.remove because it cannot be recreated. 
+    -- If it is deleted then listProjectTabs, saveProjectTab and opening/running the project will error.
+    -- The only fix is to delete the project with deleteProject.
     if self.name ~= "Info.plist" then
-        local result = xpcall(saveProjectTab,function() end,self:tabName(),nil)
-        return result
+        return self:saveTab(self:tabName(),nil)
     end
     return true
 end
