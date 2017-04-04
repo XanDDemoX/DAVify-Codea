@@ -113,7 +113,7 @@ function XmlNode:remove(node)
     assert(self._nodes~=nil)
     for i,n in ipairs(self._nodes) do
         if node == n then
-            table.remove(self._node,i)
+            table.remove(self._nodes,i)
             return true
         end
     end
@@ -164,7 +164,7 @@ function XmlNode:nodes()
         return {}
     end
     local nodes = {}
-    for i,node in ipairs(nodes) do
+    for i,node in ipairs(self._nodes) do
         table.insert(nodes,node)
     end
     return nodes
@@ -286,6 +286,7 @@ end
 
 function XmlBuilder:indent(n,i)
     if self.pretty then
+        n = n - self.prettyOptions.minIndentDepth
         table.insert(self.document,i or #self.document+1,string.rep(self.prettyOptions.tab,n or 1))
     end
 end
