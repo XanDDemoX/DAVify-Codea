@@ -140,6 +140,18 @@ function FolderNode:deleteFile(node)
     return false
 end
 
+function FolderNode:canRenameFiles()
+    return false
+end
+
+function FolderNode:canRenameFile(node,newName)
+    return false
+end
+
+function FolderNode:renameFile(node,newName)
+    return false
+end
+
 function FolderNode:getNodes()
     local nodes = {}
     for k, node in pairs(self.nodes) do
@@ -454,7 +466,7 @@ end
 
 function ProjectFolderNode:createFile(name)
     assert(self:canCreateFile(name))
-    if name ~= "Info.plist" then
+    if name ~= "Info.plist" and name ~= "Main.lua" then
         if not self:saveTab(Path.getFileNameNoExtension(name),"") then 
             return nil
         end
@@ -470,6 +482,38 @@ function ProjectFolderNode:delete()
    assert(self:canDelete())
    local result = xpcall(deleteProject,function() end,string.format("%s:%s",self.folder.name,self.name))
    return result
+end
+
+function ProjectFolderNode:canRenameFiles()
+    return true
+end
+
+function ProjectFolderNode:canRenameFile(node,newName)
+    assert(self.nodes[node.name] == node)
+    return node ~= self:get("Info.plist") and 
+    node ~= self:get("Main.lua") and
+    Path.getExtension(newName) == ".lua" and
+    self:canCreateFile(newName) and 
+    self:canDeleteFile(node)
+end
+
+function ProjectFolderNode:renameFile(node, newName)
+    assert(self:canRenameFile(node,newName))
+    local xml = self:readInfoXml()
+    local bufferOrder = xml:node("plist"):node("dict"):after(function(node)
+        return node:name() == "key" and node:value() == "Buffer Order"
+    end)
+    local newTabName = Path.getFileNameNoExtension(newName)
+    assert(bufferOrder ~= XmlNode.null)
+    local oldTabName = node:fileName()
+    local entry = bufferOrder:query(function(n) return n:value() == oldTabName end)
+    assert(entry ~= XmlNode.null)
+    local result = xpcall(saveProjectTab,function()end,string.format("%s:%s",self.name,newTabName),node:read())
+    if result then
+        entry:value(newTabName)
+        return FolderNode.createFile(self,newName) and self:writeInfoXml(xml) and self:deleteFile(node)
+    end
+    return false
 end
 
 ProjectFileNode = class(NativeFileNode)
@@ -489,7 +533,7 @@ end
 
 function ProjectFileNode:write(data)
     -- 'Deleted' plist restore, avoid writing 0 bytes.
-    if data == "" and name == "Info.plist" then
+    if data == "" and (self.name == "Info.plist" or self.name == "Main.lua") then
         return true
     end
     return NativeFileNode.write(self,data)
@@ -508,7 +552,7 @@ function ProjectFileNode:delete()
     -- Nerver actually delete the .plist with os.remove because it cannot be recreated. 
     -- If it is deleted then listProjectTabs, saveProjectTab and opening/running the project will error.
     -- The only fix is to delete the project with deleteProject.
-    if self.name ~= "Info.plist" then
+    if self.name ~= "Info.plist" and self.name ~= "Main.lua" then
         return self.folder:saveTab(self:fileName())
     end
     return true
