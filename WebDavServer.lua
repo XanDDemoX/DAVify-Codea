@@ -264,19 +264,26 @@ function WebDavServer:move(request)
             if not parent then
                 return HttpResponse(409)
             end
-            if not parent:canCreateFiles() then
-                return HttpResponse(403)
-            end
-            if not parent:canCreateFile(fileName) then
-                return HttpResponse(415)
-            end
-            local file = parent:createFile(fileName)
-            if file and file:write(node:read()) then
-                if folder:deleteFile(node) then
+            if parent == node.folder and parent:canRenameFiles() and parent:canRenameFile(node,fileName) then
+                -- explicit rename. Allows Info.plist to be updated correctly when renaming project source files.
+                if parent:renameFile(node,fileName) then
                     return HttpResponse(201)
                 end
-            elseif file then
-                parent:deleteFile(file)
+            else
+                if not parent:canCreateFiles() then
+                    return HttpResponse(403)
+                end
+                if not parent:canCreateFile(fileName) then
+                    return HttpResponse(415)
+                end
+                local file = parent:createFile(fileName)
+                if file and file:write(node:read()) then
+                    if folder:deleteFile(node) then
+                        return HttpResponse(201)
+                    end
+                elseif file then
+                    parent:deleteFile(file)
+                end
             end
         end
     end
