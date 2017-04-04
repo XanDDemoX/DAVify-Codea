@@ -422,25 +422,31 @@ function ProjectFolderNode:saveTab(tabName,content)
     if not result then
         return false
     end
-    local tabs = listProjectTabs(self.name)
-    for i,tab in ipairs(tabs) do
-        projTabs[tab]=tab
-    end
     -- get the buffer order array element
     local bufferOrder = xml:node("plist"):node("dict"):after(function(node)
         return node:name() == "key" and node:value() == "Buffer Order"
     end)
+    
+    if bufferOrder == XmlNode.null then
+        return true
+    end
+    
+    local tabs = listProjectTabs(self.name)
+    for i,tab in ipairs(tabs) do
+        tabs[tab]=tab
+    end
+
     -- remove tabs which dont exist in project
-    for i,tab in ipairs(bufferOrder:nodes()) do
-        if not tabs[tab:name()] then
-            tabs:remove(tab)
+    for i,node in ipairs(bufferOrder:nodes()) do
+        if not tabs[node:value()] then
+            bufferOrder:remove(node)
         end
     end
     -- add tabs which exist in project but don't exist in buffer order
     for i,tab in ipairs(tabs) do
-        local hasNode = tabs:query(function(node) return node:value() == tab end) ~= XmlNode.null
+        local hasNode = bufferOrder:query(function(node) return node:value() == tab end) ~= XmlNode.null
         if not hasNode then
-            tabs:add(XmlNode("string",tab))
+            bufferOrder:add(XmlNode("string",tab))
         end
     end
     return self:writeInfoXml(xml)
@@ -503,7 +509,7 @@ function ProjectFileNode:delete()
     -- If it is deleted then listProjectTabs, saveProjectTab and opening/running the project will error.
     -- The only fix is to delete the project with deleteProject.
     if self.name ~= "Info.plist" then
-        return self:saveTab(self:tabName(),nil)
+        return self.folder:saveTab(self:fileName())
     end
     return true
 end
