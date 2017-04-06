@@ -516,6 +516,20 @@ function ProjectFolderNode:renameFile(node, newName)
     return false
 end
 
+function ProjectFolderNode:getNodes()
+    local nodes = FolderNode.getNodes(self)
+    -- force Info.plist to bottom so that the tab order is preserved when copying / moving the project
+    table.sort(nodes,function(x,y)
+        if x.name == "Info.plist" then
+            return false
+        elseif y.name == "Info.plist" then
+            return true
+        end
+        return x.name < y.name
+    end)
+    return nodes
+end
+
 ProjectFileNode = class(NativeFileNode)
 function ProjectFileNode:init(name)
     NativeFileNode.init(self, name)
