@@ -157,7 +157,10 @@ function FolderNode:canRenameFiles()
 end
 
 function FolderNode:canRenameFile(node,newName)
-    return false
+    return self:canRenameFiles() and 
+    self:canCreateFile(newName) and 
+    self:canDeleteFile(node) and 
+    node:extension() == Path.getExtension(newName)
 end
 
 function FolderNode:renameFile(node,newName)
@@ -521,11 +524,9 @@ end
 
 function ProjectFolderNode:canRenameFile(node,newName)
     assert(self.nodes[node.name] == node)
-    return node ~= self:get("Info.plist") and 
-    node ~= self:get("Main.lua") and
-    Path.getExtension(newName) == ".lua" and
-    self:canCreateFile(newName) and 
-    self:canDeleteFile(node)
+    return FolderNode.canRenameFile(self,node,newName) and 
+    node:extension() == ".lua" and
+    node ~= self:get("Main.lua")
 end
 
 function ProjectFolderNode:renameFile(node, newName)
@@ -653,6 +654,57 @@ end
 
 function AssetFolderNode:createFileNode(name)
     return NativeFileNode(name)
+end
+
+function AssetFolderNode:canRenameFiles()
+    return self.assetType == SPRITES
+end
+
+function AssetFolderNode:canRenameFile(node,newName)
+    return FolderNode.canRenameFile(self,node,newName) and
+    (node:fileName():find("@2x") == nil) == (newName:find("@2x") == nil)
+end
+
+function AssetFolderNode:renameFile(node, newName)
+    assert(self:canRenameFile(node,newName))
+    local files = {{node=node, newName=newName}}
+    local idx = node:fileName():find("@2x")
+    if idx then
+        local small = self:get(node:fileName():sub(1,idx-1)..node:extension())
+        if small then
+            local name = Path.getFileNameNoExtension(newName)
+            local ni = name:find("@2x")
+            name = name:sub(1,ni-1)
+            table.insert(files,{
+                node=small, 
+                newName=name..Path.getExtension(newName)
+            })
+        end
+    else
+        local large = self:get(string.format("%s@2x%s",node:fileName(),node:extension()))
+        if large then
+            table.insert(files,{
+                node=large, 
+                newName=string.format("%s@2x%s",Path.getFileNameNoExtension(newName),Path.getExtension(newName))
+            })
+        end
+        
+    end
+    local result = true
+    for i,file in ipairs(files) do
+        local newFile = self:createFile(file.newName)
+        if not newFile or not newFile:write(file.node:read()) then
+            result = false
+        end
+    end
+    if result then
+        for i, file in ipairs(files) do
+            if not self:deleteFile(file.node) then
+                result = false
+            end
+        end
+    end
+    return result
 end
 
 -- shader
