@@ -227,6 +227,7 @@ end
 function DocTypeXmlNode:emit(builder)
     builder:doctype(self:value())
 end
+
 -- parser 
 XmlParser = class()
 function XmlParser:init()
@@ -262,7 +263,6 @@ end
 
 -- builder which constructs an xml document
 XmlBuilder = class()
-
 function XmlBuilder:init(pretty,prettyOptions)
     self.document = {'<?xml version="1.0" encoding="UTF-8"?>'}
     self.element = nil
