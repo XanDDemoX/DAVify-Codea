@@ -10,6 +10,7 @@ Xml.escape = function(value)
         end)
     return value
 end
+
 Xml.unescape = function(value)
     value = string.gsub(value, "&#x([%x]+)%;",
         function(h)
@@ -26,6 +27,7 @@ Xml.unescape = function(value)
     value = string.gsub(value, "&amp;", "&")
     return value
 end
+
 -- https://github.com/Cluain/Lua-Simple-XML-Parser/blob/master/xmlSimple.lua
 Xml.parse = function(xml)
     local stack = {}
