@@ -442,24 +442,13 @@ function ProjectFolderNode:saveTab(tabName,content)
     if bufferOrder == XmlNode.null then
         return true
     end
-    
-    local tabs = listProjectTabs(self.name)
-    for i,tab in ipairs(tabs) do
-        tabs[tab]=tab
-    end
-
-    -- remove tabs which dont exist in project
-    for i,node in ipairs(bufferOrder:nodes()) do
-        if not tabs[node:value()] then
-            bufferOrder:remove(node)
-        end
-    end
-    -- add tabs which exist in project but don't exist in buffer order
-    for i,tab in ipairs(tabs) do
-        local hasNode = bufferOrder:query(function(node) return node:value() == tab end) ~= XmlNode.null
-        if not hasNode then
-            bufferOrder:add(XmlNode("string",tab))
-        end
+    -- ammend the buffer order if required. we don't perform a full sync because
+    -- it would corrupt the tab order in a multi-file copy scenario.
+    local node = bufferOrder:query(function(node) return node:value() == tabName end)
+    if content and node == XmlNode.null then
+        bufferOrder:add(XmlNode("string",tabName))
+    elseif not content and node ~= XmlNode.null then
+        bufferOrder:remove(node)
     end
     return self:writeInfoXml(xml)
 end
