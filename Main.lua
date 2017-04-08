@@ -37,7 +37,8 @@ function setup()
     for i, name in ipairs(assetList("Documents",SPRITES)) do
         local imgs = {
             NativeFileNode(string.format("%s.png",name)),
-            NativeFileNode(string.format("%s@2x.png",name))
+            NativeFileNode(string.format("%s@2x.png",name)),
+            NativeFileNode(string.format("%s.pdf",name))
         }
         for i, img in ipairs(imgs) do
             if img:exists() then -- test if the file exists before adding (@2x images may not always be present)
