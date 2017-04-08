@@ -338,7 +338,7 @@ function XmlBuilder:commitElement(partial)
             self:indent(elem.depth)
         end
         table.insert(document,table.concat(str))
-        if elem.hasChildren then
+        if elem.hasChildren or elem.closed then
             self:newLine()
         end
         if partial then
