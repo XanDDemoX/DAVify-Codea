@@ -1,5 +1,4 @@
 -- WebDavServer
-
 function setup()
     print("loading project and asset data ...")
     -- initialise the virtual file system
@@ -83,4 +82,3 @@ function draw()
     
     memoryUsage = string.format("%.2f MB",collectgarbage('count')/1024)
 end
-
