@@ -7,6 +7,7 @@ Path.splitPathAndName = function(path)
     table.insert(parts,1,"")
     return table.concat(parts,"/"), fileName
 end
+
 Path.getFileNameNoExtension=function(path)
     assert(type(path)=="string","'path' must be a non null string")
     local idx = path:find("%.[^%.]*$")
@@ -15,6 +16,7 @@ Path.getFileNameNoExtension=function(path)
     end
     return path
 end
+
 Path.getExtension=function(path)
     assert(type(path)=="string","'path' must be a non null string")
     local idx = path:find("%.[^%.]*$")
