@@ -601,7 +601,7 @@ function ShaderFileNode:nativePath()
     return string.format("%s/Documents/%s.shader/%s",os.getenv("HOME"),self.folder.name,self.name)
 end
 
--- asset
+-- assets
 AssetFolderNode = class(FolderNode)
 function AssetFolderNode:canCreateFiles()
     return true
@@ -614,5 +614,3 @@ end
 function AssetFolderNode:createFileNode(name)
     return NativeFileNode(name)
 end
-
-
