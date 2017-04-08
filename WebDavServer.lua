@@ -10,7 +10,6 @@ WebDavServer = class(HttpServer)
 function WebDavServer:init(folder,...)
     assert(type(folder)=="table" and folder.is_a and folder:is_a(FolderNode),
     "'folder' must not be null and derive from FolderNode.")
-    
     HttpServer.init(self, function(request)
         local method = request.method
         if method == "GET" then
