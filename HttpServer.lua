@@ -2,7 +2,6 @@
 -- but doesn't implement any actual HTTP methods.
 -- https://tools.ietf.org/html/rfc2068
 HttpRequest = class()
-
 function HttpRequest:init(method,path,version,header,body)
     self.method = method:upper()
     self.path = path
@@ -138,7 +137,6 @@ end
 
 -- server
 HttpServer = class()
-
 function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
     self.callback = callback or function(request) end
     -- automatic is default
@@ -163,7 +161,6 @@ function HttpServer:getIp()
     s:close()
     return ip
 end
-
 
 function HttpServer:start()
     assert(self.socket==nil,"Server is already running")
@@ -334,4 +331,3 @@ function HttpServer:injectHeader(response)
     table.insert(header,self.name)
     return header
 end
-
