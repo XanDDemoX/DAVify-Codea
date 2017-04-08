@@ -209,6 +209,7 @@ function WebDavServer:move(request)
         if depth ~= "infinity" then
             return HttpResponse(409)
         end
+        local created = false
         if not destNode then
             local parentPath,folderName = Path.splitPathAndName(destination)
             local parent = self.folder:get(parentPath)
@@ -228,6 +229,7 @@ function WebDavServer:move(request)
             else
                 return HttpResponse(422)
             end
+            created = true
         end
         
         local xml = XmlBuilder()
@@ -243,6 +245,11 @@ function WebDavServer:move(request)
         end
         if copied then -- only delete if all nodes were copied successfully
             folder:deleteFolder(node)
+        end
+        if copied and created then
+            return HttpResponse(201)
+        elseif copied and not created then
+            return HttpResponse(204)
         end
         return HttpResponse(207,xml:toString(),"Content-Type",'application/xml; charset="utf-8"')
     elseif node:is_a(FileNode) then
