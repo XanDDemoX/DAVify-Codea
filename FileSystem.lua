@@ -55,8 +55,18 @@ function FolderNode:canCreateFolder(name)
     return self.nodes[name] == nil
 end
 
+function FolderNode:createFolderNode(name)
+    return FolderNode(name)
+end
+
+
 function FolderNode:createFolder(name)
-    return nil
+    assert(self:canCreateFolder(name))
+    local folder = self:createFolderNode(name)
+    if folder then
+        self:add(folder)
+    end
+    return folder
 end
 
 function FolderNode:canDeleteFolders()
@@ -351,11 +361,32 @@ function NativeFileNode:delete()
 end
 
 -- projects
-ProjectCollectionFolderNode = class(FolderNode)
-function ProjectCollectionFolderNode:init(name)
-    FolderNode.init(self, name)
+ProjectsFolderNode = class(FolderNode)
+function ProjectsFolderNode:canCreateFolders()
+    return true
 end
 
+function ProjectsFolderNode:createFolderNode(name)
+    return ProjectCollectionFolderNode(name)
+end
+
+function ProjectsFolderNode:canDeleteFolders()
+    return true
+end
+
+function ProjectsFolderNode:canDeleteFolder(node)
+    assert(type(node) == "table" and node.is_a and node:is_a(FolderNode))
+    assert(self.nodes[node.name] == node)
+    return not node:hasNodes() and node.name ~= "Documents"
+end
+
+function ProjectsFolderNode:deleteFolder(node)
+    assert(self:canDeleteFolder(node))
+    self:remove(node)
+    return true
+end
+
+ProjectCollectionFolderNode = class(FolderNode)
 function ProjectCollectionFolderNode:canDeleteFolders()
     return true
 end
