@@ -7,7 +7,7 @@ function setup()
     local folder = FolderNode()
     -- create a folder for projects which contains projects organised by collection
     -- (Documents and Examples unless any custom collections have been created).
-    local projects = FolderNode("Projects")
+    local projects = ProjectsFolderNode("Projects")
     local documents = ProjectCollectionFolderNode("Documents")
     projects:add(documents)
     for i, name in ipairs(listProjects()) do
@@ -24,7 +24,7 @@ function setup()
         end
     end
     folder:add(projects)
-    
+
     -- create a folder for shaders and add all shaders in documents 
     local shaders = FolderNode("Shaders")
     for i, name in ipairs(assetList("Documents",SHADERS)) do
