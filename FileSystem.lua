@@ -599,28 +599,6 @@ function ProjectFileNode:delete()
     return true
 end
 
--- shader
-ShaderFolderNode = class(FolderNode)
-function ShaderFolderNode:init(name)
-    FolderNode.init(self, name)
-    self:add(ShaderFileNode("Fragment.fsh"))
-    self:add(ShaderFileNode("Info.plist"))
-    self:add(ShaderFileNode("Vertex.vsh"))
-end
-
-ShaderFileNode = class(NativeFileNode)
-function ShaderFileNode:canDelete()
-    return false
-end
-
-function ShaderFileNode:delete()
-    return false
-end
-
-function ShaderFileNode:nativePath()
-    return string.format("%s/Documents/%s.shader/%s",os.getenv("HOME"),self.folder.name,self.name)
-end
-
 -- assets
 AssetFolderNode = class(FolderNode)
 function AssetFolderNode:init(name,assetType)
@@ -662,4 +640,26 @@ end
 
 function AssetFolderNode:createFileNode(name)
     return NativeFileNode(name)
+end
+
+-- shader
+ShaderFolderNode = class(FolderNode)
+function ShaderFolderNode:init(name)
+    FolderNode.init(self, name)
+    self:add(ShaderFileNode("Fragment.fsh"))
+    self:add(ShaderFileNode("Info.plist"))
+    self:add(ShaderFileNode("Vertex.vsh"))
+end
+
+ShaderFileNode = class(NativeFileNode)
+function ShaderFileNode:canDelete()
+    return false
+end
+
+function ShaderFileNode:delete()
+    return false
+end
+
+function ShaderFileNode:nativePath()
+    return string.format("%s/Documents/%s.shader/%s",os.getenv("HOME"),self.folder.name,self.name)
 end
