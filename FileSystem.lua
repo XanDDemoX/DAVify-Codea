@@ -242,11 +242,6 @@ end
 
 -- interface to provide generic storage
 FileNode = class(FileSystemNode)
-
-function FileNode:init(name)
-    FileSystemNode.init(self,name)
-end
-
 function FileNode:size()
     return 0
 end
@@ -296,10 +291,6 @@ end
 -- specialisations can override the nativePath function to read / write from other locations
 -- paths to native files should not be stores as a fixed variable so that it can vary for moves and renames etc.
 NativeFileNode = class(FileNode)
-function NativeFileNode:init(name)
-    FileNode.init(self, name)
-end
-
 function NativeFileNode:nativePath()
     return string.format("%s/Documents/%s",os.getenv("HOME"),self.name)
 end
@@ -551,10 +542,6 @@ function ProjectFolderNode:getNodes()
 end
 
 ProjectFileNode = class(NativeFileNode)
-function ProjectFileNode:init(name)
-    NativeFileNode.init(self, name)
-end
-
 function ProjectFileNode:nativePath()
     local colName = self.folder.folder.name
     local projName = self.folder.name
@@ -602,10 +589,6 @@ function ShaderFolderNode:init(name)
 end
 
 ShaderFileNode = class(NativeFileNode)
-function ShaderFileNode:init(name)
-    NativeFileNode.init(self, name)
-end
-
 function ShaderFileNode:canDelete()
     return false
 end
@@ -620,10 +603,6 @@ end
 
 -- asset
 AssetFolderNode = class(FolderNode)
-function AssetFolderNode:init(name)
-    FolderNode.init(self,name)
-end
-
 function AssetFolderNode:canCreateFiles()
     return true
 end
