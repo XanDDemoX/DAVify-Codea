@@ -638,6 +638,19 @@ function AssetFolderNode:canDeleteFiles()
     return self.assetType == SPRITES or self.assetType == TEXT
 end
 
+function AssetFolderNode:canCreateFile(name)
+    if not FolderNode.canCreateFile(self,name) then
+        return false
+    end
+    if self.assetType == SPRITES then
+        local ext = Path.getExtension(name)
+        return ext == ".png" or ext == ".pdf"
+    elseif self.assetType == TEXT then
+        return Path.getExtension(name) == ".txt"
+    end
+    return false
+end
+
 function AssetFolderNode:createFileNode(name)
     return NativeFileNode(name)
 end
