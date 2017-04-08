@@ -355,6 +355,24 @@ end
 
 -- projects
 ProjectsFolderNode = class(FolderNode)
+function ProjectsFolderNode:init(name)
+    FolderNode.init(self,name)
+    local documents = ProjectCollectionFolderNode("Documents")
+    self:add(documents)
+    for i, key in ipairs(listProjects()) do
+        local projName,colName = parseProjectKey(key)
+        if colName then
+            local collection = self:get(colName)
+            if not collection then
+                collection = ProjectCollectionFolderNode(colName)
+                self:add(collection)
+            end
+            collection:add(ProjectFolderNode(projName))
+        else
+            documents:add(ProjectFolderNode(projName))
+        end
+    end
+end
 function ProjectsFolderNode:canCreateFolders()
     return true
 end
@@ -605,12 +623,41 @@ end
 
 -- assets
 AssetFolderNode = class(FolderNode)
+function AssetFolderNode:init(name,assetType)
+    FolderNode.init(self,name)
+    self.assetType = assetType
+    local assets = assetList("Documents",assetType)
+    if assetType == SHADERS then
+        for i, key in ipairs(assets) do
+            self:add(ShaderFolderNode(key))
+        end
+    elseif assetType == SPRITES then
+        for i, key in ipairs(assets) do
+            local imgs = {
+                NativeFileNode(string.format("%s.png",key)),
+                NativeFileNode(string.format("%s@2x.png",key)),
+                NativeFileNode(string.format("%s.pdf",key))
+            }
+            for i, img in ipairs(imgs) do
+                -- test if the file exists before adding (@2x images may not always be present)
+                if img:exists() then 
+                    self:add(img)
+                end
+            end
+        end
+    elseif assetType == TEXT then
+        for i, key in ipairs(assets) do
+            self:add(NativeFileNode(string.format("%s.txt",key)))
+        end
+    end
+end
+
 function AssetFolderNode:canCreateFiles()
-    return true
+    return self.assetType == SPRITES or self.assetType == TEXT
 end
 
 function AssetFolderNode:canDeleteFiles()
-    return true
+    return self.assetType == SPRITES or self.assetType == TEXT
 end
 
 function AssetFolderNode:createFileNode(name)
