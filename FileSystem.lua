@@ -26,6 +26,18 @@ Path.getExtension=function(path)
     return ""
 end
 
+Path.combine = function(...)
+    local parts = {...}
+    for i,part in ipairs(parts) do
+        local j = part:find("/",1,true) == 1 and 2 or nil
+        local k = part:find("/",-1,true)
+        if j or k then
+            parts[i] = part:sub(i > 1 and j or 1,k and k-1 or nil)
+        end
+    end
+    return table.concat(parts,"/")
+end
+
 -- base for all file system nodes
 FileSystemNode = class()
 function FileSystemNode:init(name)
