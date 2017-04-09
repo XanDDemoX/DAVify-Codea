@@ -20,8 +20,10 @@ function WebDavServer:init(folder,...)
             return self:put(request)
         elseif method == "MKCOL" then
             return self:mkcol(request)
+        elseif method == "COPY" then
+            return self:move(request, false)
         elseif method == "MOVE" then
-            return self:move(request)
+            return self:move(request, true)
         elseif method == "DELETE" then
             return self:delete(request)
         elseif method == "OPTIONS" then
@@ -209,7 +211,7 @@ function WebDavServer:copyNode(source, target, responses)
     return false
 end
 
-function WebDavServer:move(request)
+function WebDavServer:move(request, delete)
     local server, destination = self:getDestinationServerAndPath(request)
     if not server or not destination then 
         return HttpResponse(400)
@@ -232,7 +234,7 @@ function WebDavServer:move(request)
     end
     if node:is_a(FolderNode) then
         local folder = node.folder
-        if not folder:canDeleteFolder(node) then
+        if delete and not folder:canDeleteFolder(node) then
             return HttpResponse(403)
         end
         
@@ -271,7 +273,7 @@ function WebDavServer:move(request)
                 copied = false
             end
         end
-        if copied then -- only delete if all nodes were copied successfully
+        if copied and delete then -- only delete if all nodes were copied successfully
             folder:deleteFolder(node)
         end
         if copied and created then
@@ -288,12 +290,14 @@ function WebDavServer:move(request)
         return HttpResponse(207,xml:toString(),"Content-Type",'application/xml; charset="utf-8"')
     elseif node:is_a(FileNode) then
         local folder = node.folder
-        if not folder:canDeleteFile(node) then
+        if delete and not folder:canDeleteFile(node) then
             return HttpResponse(403)
         end
         if destNode then
             if destNode:write(node:read()) then
-                if folder:deleteFile(node) then
+                if delete and folder:deleteFile(node) then
+                    return HttpResponse(204)
+                elseif not delete then
                     return HttpResponse(204)
                 end
             end
@@ -303,7 +307,8 @@ function WebDavServer:move(request)
             if not parent then
                 return HttpResponse(409)
             end
-            if parent == node.folder and parent:canRenameFiles() and parent:canRenameFile(node,fileName) then
+            if delete and parent == node.folder and 
+                parent:canRenameFiles() and parent:canRenameFile(node,fileName) then
                 -- explicit rename. Allows Info.plist to be updated correctly when renaming project source files.
                 if parent:renameFile(node,fileName) then
                     return HttpResponse(201)
@@ -317,7 +322,9 @@ function WebDavServer:move(request)
                 end
                 local file = parent:createFile(fileName)
                 if file and file:write(node:read()) then
-                    if folder:deleteFile(node) then
+                    if delete and folder:deleteFile(node) then
+                        return HttpResponse(201)
+                    elseif not delete then
                         return HttpResponse(201)
                     end
                 elseif file then
