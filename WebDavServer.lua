@@ -360,11 +360,14 @@ function WebDavServer:delete(request)
 end
 
 function WebDavServer:getAllow(node)
-    local methods = {"OPTIONS", "PROPFIND"}
+    local methods = {"OPTIONS","PROPFIND"}
     if node:is_a(FileNode) then
         table.insert(methods,"GET")
         if node:canWrite() then
             table.insert(methods,"PUT")
+        end
+        if node:canDelete() then
+            table.insert(methods,"DELETE")
         end
     elseif node:is_a(FolderNode) then
         if node:canCreateFolders() then
@@ -372,6 +375,18 @@ function WebDavServer:getAllow(node)
         end
         if node:canCreateFiles() then
             table.insert(methods,"PUT")
+        end
+        if node:canDeleteFiles() or node:canDeleteFolders() then
+            table.insert(methods,"DELETE")
+        end
+        
+        if node:canCreateFiles() or node:canCreateFolders() then
+            table.insert(methods,"COPY")
+        end
+        
+        if node:canRenameFiles() or (node:canCreateFolders() and node:canDeleteFolders()) or 
+            (node:canCreateFiles() and node:canDeleteFiles()) then
+            table.insert(methods,"MOVE")
         end
     end
     return table.concat(methods,", ")
