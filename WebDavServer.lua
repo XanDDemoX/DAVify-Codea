@@ -146,33 +146,67 @@ function WebDavServer:getDestinationServerAndPath(request)
     return nil
 end
 
-function WebDavServer:copyNode(source, target, xml)
-    local result = true
+function WebDavServer:copyNode(source, target, responses)
     if source:is_a(FolderNode) then
+        local response = XmlNode("response")
+        response:add(XmlNode("href",Path.combine(target:fullpath(),source.name)))
+        responses:add(response)
         local folder = target:get(source.name)
+        local created = false
         if not folder and target:canCreateFolders() and target:canCreateFolder(source.name) then
             folder = target:createFolder(source.name)
+            created = true
         end
+        local status = XmlNode("status")
+        response:add(status)
         if folder then
+            local result = true
             for i,node in ipairs(source:getNodes()) do
-                if not self:copyNode(node, folder, xml) then
+                if not self:copyNode(node, folder, responses) then
                     result = false
                 end
             end
+            if result then
+                status:value(HttpResponse.getFirstLine(created and 201 or 204))
+                return true
+            else
+                status:value(HttpResponse.getFirstLine(412))
+            end
+        elseif not target:canCreateFolders() then
+            status:value(HttpResponse.getFirstLine(403))
+        elseif target:canCreateFolder(source.name) then
+            status:value(HttpResponse.getFirstLine(409))
+        else
+            status:value(HttpResponse.getFirstLine(500))
         end
     elseif source:is_a(FileNode) then
+        local response = XmlNode("response")
+        response:add(XmlNode("href",Path.combine(target:fullpath(),source.name)))
+        responses:add(response)
         local file = target:get(source.name)
+        local created = false
         if not file and target:canCreateFiles() and target:canCreateFile(source.name) then
             file = target:createFile(source.name)
+            created = true
         end
-        if file and file:write(source:read()) then
+        local status = XmlNode("status")
+        response:add(status)
+        if file then
+            if file:write(source:read()) then
+                status:value(HttpResponse.getFirstLine(created and 201 or 204))
+                return true
+            else
+                status:value(HttpResponse.getFirstLine(500))
+            end
+        elseif not target:canCreateFiles() then
+            status:value(HttpResponse.getFirstLine(403))
+        elseif not target:canCreateFile(source.name) then
+            status:value(HttpResponse.getFirstLine(409))
         else
-            result = false
+            status:value(HttpResponse.getFirstLine(500))
         end
-    else
-        return false
     end
-    return result
+    return false
 end
 
 function WebDavServer:move(request)
@@ -230,15 +264,10 @@ function WebDavServer:move(request)
             end
             created = true
         end
-        
-        local xml = XmlBuilder()
-        xml:ns("D")
-        :elem("multistatus")
-        :attr("xmlns:D","DAV:")
-        :push()
+        local responses = XmlNode(true)
         local copied = true
         for i,child in ipairs(node:getNodes()) do
-            if not self:copyNode(child,destNode,xml) then
+            if not self:copyNode(child,destNode,responses) then
                 copied = false
             end
         end
@@ -250,6 +279,12 @@ function WebDavServer:move(request)
         elseif copied and not created then
             return HttpResponse(204)
         end
+        local xml = XmlBuilder()
+        xml:ns("D")
+        :elem("multistatus")
+        :attr("xmlns:D","DAV:")
+        :push()
+        responses:emit(xml)
         return HttpResponse(207,xml:toString(),"Content-Type",'application/xml; charset="utf-8"')
     elseif node:is_a(FileNode) then
         local folder = node.folder
