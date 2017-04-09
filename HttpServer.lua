@@ -51,6 +51,12 @@ HttpResponse.statuses = packLookup(
     507,"Insufficient Storage"
 )
 
+HttpResponse.getFirstLine=function(status,message)
+    return string.format("HTTP/1.1 %i %s\r\n", status, 
+    message or HttpResponse.statuses[status] or "Unknown Status")
+end
+
+
 function HttpResponse:init(status, content,...)
     assert(status ~= nil, "'status' must be supplied")
     self.status = status
