@@ -5,6 +5,7 @@
 -- http://www.webdav.org/specs/rfc3648.html
 -- http://stackoverflow.com/questions/10144148/example-of-a-minimal-request-response-cycle-for-webdav
 -- http://sabre.io/dav/clients/windows/
+-- http://www.restpatterns.org/HTTP_Methods/
 
 WebDavServer = class(HttpServer)
 function WebDavServer:init(folder,...)
