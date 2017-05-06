@@ -5,6 +5,7 @@ function setup()
     -- create the root folder and add root folders for projects and each asset type.
     local folder = FolderNode()
     folder:add(ProjectsFolderNode("Projects"))
+    folder:add(AssetFolderNode("Models",MODELS))
     folder:add(AssetFolderNode("Shaders",SHADERS))
     folder:add(AssetFolderNode("Sprites",SPRITES))
     folder:add(AssetFolderNode("Text",TEXT))
