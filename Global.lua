@@ -1,5 +1,9 @@
+-- sockets
 socket = require("socket")
 url = socket.url
+
+-- Codea Craft
+MODELS = "models"
 
 function packLookup(...)
     local count = select("#",...)
