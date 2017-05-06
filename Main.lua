@@ -6,8 +6,10 @@ function setup()
     local folder = FolderNode()
     folder:add(ProjectsFolderNode("Projects"))
     folder:add(AssetFolderNode("Models",MODELS))
+    folder:add(AssetFolderNode("Music",MUSIC))
     folder:add(AssetFolderNode("Shaders",SHADERS))
     folder:add(AssetFolderNode("Sprites",SPRITES))
+    folder:add(AssetFolderNode("Sounds",SOUNDS))
     folder:add(AssetFolderNode("Text",TEXT))
     
     -- start the server 
