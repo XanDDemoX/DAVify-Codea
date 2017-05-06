@@ -644,15 +644,39 @@ function AssetFolderNode:init(name,assetType)
         for i, key in ipairs(assets) do
             self:add(NativeFileNode(string.format("%s.obj",key)))
         end
+    elseif assetType == MUSIC then
+        for i, key in ipairs(assets) do
+            local files = {
+                NativeFileNode(string.format("%s.m4a",key)),
+                NativeFileNode(string.format("%s.wav",key))
+            }
+            for i, file in ipairs(files) do
+                if file:exists() then
+                    self:add(file)
+                end
+            end
+        end
+    elseif assetType == SOUNDS then
+        for i, key in ipairs(assets) do
+            self:add(NativeFileNode(string.format("%s.caf",key)))
+        end
     end
 end
 
 function AssetFolderNode:canCreateFiles()
-    return self.assetType == SPRITES or self.assetType == TEXT or self.assetType == MODELS
+    return self.assetType == SPRITES or 
+    self.assetType == TEXT or 
+    self.assetType == MODELS or
+    self.assetType == MUSIC or
+    self.assetType == SOUNDS
 end
 
 function AssetFolderNode:canDeleteFiles()
-    return self.assetType == SPRITES or self.assetType == TEXT or self.assetType == MODELS
+    return self.assetType == SPRITES or 
+    self.assetType == TEXT or 
+    self.assetType == MODELS or
+    self.assetType == MUSIC or
+    self.assetType == SOUNDS
 end
 
 function AssetFolderNode:canCreateFile(name)
@@ -666,6 +690,11 @@ function AssetFolderNode:canCreateFile(name)
         return Path.getExtension(name) == ".txt"
     elseif self.assetType == MODELS then
         return Path.getExtension(name) == ".obj"
+    elseif self.assetType == MUSIC then
+        local ext = Path.getExtension(name)
+        return ext == ".m4a" or ext == ".wav"
+    elseif self.assetType == SOUNDS then
+        return Path.getExtension(name) == ".caf"
     end
     return false
 end
