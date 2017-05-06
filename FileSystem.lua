@@ -640,15 +640,19 @@ function AssetFolderNode:init(name,assetType)
         for i, key in ipairs(assets) do
             self:add(NativeFileNode(string.format("%s.txt",key)))
         end
+    elseif assetType == MODELS then
+        for i, key in ipairs(assets) do
+            self:add(NativeFileNode(string.format("%s.obj",key)))
+        end
     end
 end
 
 function AssetFolderNode:canCreateFiles()
-    return self.assetType == SPRITES or self.assetType == TEXT
+    return self.assetType == SPRITES or self.assetType == TEXT or self.assetType == MODELS
 end
 
 function AssetFolderNode:canDeleteFiles()
-    return self.assetType == SPRITES or self.assetType == TEXT
+    return self.assetType == SPRITES or self.assetType == TEXT or self.assetType == MODELS
 end
 
 function AssetFolderNode:canCreateFile(name)
@@ -660,6 +664,8 @@ function AssetFolderNode:canCreateFile(name)
         return ext == ".png" or ext == ".pdf"
     elseif self.assetType == TEXT then
         return Path.getExtension(name) == ".txt"
+    elseif self.assetType == MODELS then
+        return Path.getExtension(name) == ".obj"
     end
     return false
 end
