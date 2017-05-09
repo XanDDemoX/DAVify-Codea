@@ -372,7 +372,7 @@ end
 ProjectsFolderNode = class(FolderNode)
 function ProjectsFolderNode:init(name)
     FolderNode.init(self,name)
-    local documents = ProjectCollectionFolderNode("Documents")
+    local documents = ProjectCollectionFolderNode(DOCUMENTS)
     self:add(documents)
     for i, key in ipairs(listProjects()) do
         local projName,colName = parseProjectKey(key)
@@ -403,7 +403,7 @@ end
 function ProjectsFolderNode:canDeleteFolder(node)
     assert(type(node) == "table" and node.is_a and node:is_a(FolderNode))
     assert(self.nodes[node.name] == node)
-    return not node:hasNodes() and node.name ~= "Documents"
+    return not node:hasNodes() and node.name ~= DOCUMENTS
 end
 
 function ProjectsFolderNode:deleteFolder(node)
@@ -578,7 +578,7 @@ ProjectFileNode = class(NativeFileNode)
 function ProjectFileNode:nativePath()
     local colName = self.folder.folder.name
     local projName = self.folder.name
-    if colName == "Documents" then
+    if colName == DOCUMENTS then
         return string.format("%s/Documents/%s.codea/%s",os.getenv("HOME"),projName,self.name)
     else
         return string.format("%s/Documents/%s.collection/%s.codea/%s",os.getenv("HOME"),colName,projName,self.name)
@@ -612,95 +612,66 @@ function ProjectFileNode:delete()
     return true
 end
 
+AssetPackFolderNode = class(FolderNode)
+function AssetPackFolderNode:init(name)
+    FolderNode.init(self,name)
+    self:add(AssetFolderNode("Models",name,MODELS))
+    self:add(AssetFolderNode("Music",name,MUSIC))
+    self:add(ShadersFolderNode("Shaders",name))
+    self:add(AssetFolderNode("Sprites",name,SPRITES))
+    self:add(AssetFolderNode("Sounds",name,SOUNDS))
+    self:add(AssetFolderNode("Text",name,TEXT))
+end
+
 -- assets
 AssetFolderNode = class(FolderNode)
-function AssetFolderNode:init(name,assetType)
+AssetFolderNode.assetFileNameFormats = packLookup(
+    MODELS, {"%s.obj"},
+    MUSIC, {"%s.m4a","%s.wav"},
+    SOUNDS, {"%s.caf"},
+    SPRITES, {"%s.png","%s@2x.png","%s.pdf"},
+    TEXT, {"%s.txt"}
+)
+function AssetFolderNode:init(name,assetPackName,assetType)
     FolderNode.init(self,name)
+    self.assetPackName = assetPackName
     self.assetType = assetType
-    local assets = assetList("Documents",assetType)
-    if assetType == SHADERS then
-        for i, key in ipairs(assets) do
-            self:add(ShaderFolderNode(key))
-        end
-    elseif assetType == SPRITES then
-        for i, key in ipairs(assets) do
-            local imgs = {
-                NativeFileNode(string.format("%s.png",key)),
-                NativeFileNode(string.format("%s@2x.png",key)),
-                NativeFileNode(string.format("%s.pdf",key))
-            }
-            for i, img in ipairs(imgs) do
-                -- test if the file exists before adding (@2x images may not always be present)
-                if img:exists() then 
-                    self:add(img)
-                end
+    local formats = AssetFolderNode.assetFileNameFormats[assetType]
+    local assets = assetList(assetPackName,assetType)
+    for i,name in ipairs(assets) do
+        for ii, format in ipairs(formats) do
+            local fileName = string.format(format,name)
+            local file = self:createFileNode(fileName)
+            if file:exists() then
+                self:add(file)
             end
         end
-    elseif assetType == TEXT then
-        for i, key in ipairs(assets) do
-            self:add(NativeFileNode(string.format("%s.txt",key)))
-        end
-    elseif assetType == MODELS then
-        for i, key in ipairs(assets) do
-            self:add(NativeFileNode(string.format("%s.obj",key)))
-        end
-    elseif assetType == MUSIC then
-        for i, key in ipairs(assets) do
-            local files = {
-                NativeFileNode(string.format("%s.m4a",key)),
-                NativeFileNode(string.format("%s.wav",key))
-            }
-            for i, file in ipairs(files) do
-                if file:exists() then
-                    self:add(file)
-                end
-            end
-        end
-    elseif assetType == SOUNDS then
-        for i, key in ipairs(assets) do
-            self:add(NativeFileNode(string.format("%s.caf",key)))
-        end
+    end
+    self.extensions = {}
+    for i, format in ipairs(formats) do
+        local ext = Path.getExtension(format)
+        self.extensions[ext] = ext
     end
 end
 
 function AssetFolderNode:canCreateFiles()
-    return self.assetType == SPRITES or 
-    self.assetType == TEXT or 
-    self.assetType == MODELS or
-    self.assetType == MUSIC or
-    self.assetType == SOUNDS
+    return true
 end
 
 function AssetFolderNode:canDeleteFiles()
-    return self.assetType == SPRITES or 
-    self.assetType == TEXT or 
-    self.assetType == MODELS or
-    self.assetType == MUSIC or
-    self.assetType == SOUNDS
+    return true
 end
 
 function AssetFolderNode:canCreateFile(name)
     if not FolderNode.canCreateFile(self,name) then
         return false
     end
-    if self.assetType == SPRITES then
-        local ext = Path.getExtension(name)
-        return ext == ".png" or ext == ".pdf"
-    elseif self.assetType == TEXT then
-        return Path.getExtension(name) == ".txt"
-    elseif self.assetType == MODELS then
-        return Path.getExtension(name) == ".obj"
-    elseif self.assetType == MUSIC then
-        local ext = Path.getExtension(name)
-        return ext == ".m4a" or ext == ".wav"
-    elseif self.assetType == SOUNDS then
-        return Path.getExtension(name) == ".caf"
-    end
-    return false
+    local ext = Path.getExtension(name)
+    return self.extensions[ext] ~= nil
 end
 
 function AssetFolderNode:createFileNode(name)
-    return NativeFileNode(name)
+    return AssetFileNode(name,self.assetPackName)
 end
 
 function AssetFolderNode:canRenameFiles()
@@ -752,6 +723,26 @@ function AssetFolderNode:renameFile(node, newName)
         end
     end
     return result
+end
+
+AssetFileNode = class(NativeFileNode)
+function AssetFileNode:init(name,assetPackName)
+    NativeFileNode.init(self, name)
+    self.assetPackName = assetPackName
+end
+function AssetFileNode:nativePath()
+    if self.assetPackName == DOCUMENTS then
+        return NativeFileNode.nativePath(self)
+    end
+    return string.format("%s/Documents/%s.assets/%s",os.getenv("HOME"),self.assetPackName,self.name)
+end
+
+ShadersFolderNode = class(FolderNode)
+function ShadersFolderNode:init(name,assetPackName)
+    FolderNode.init(self,name)
+    for i, assetName in ipairs(assetList(assetPackName,SHADERS)) do
+        self:add(ShaderFolderNode(assetName))
+    end
 end
 
 -- shader
