@@ -1,16 +1,15 @@
 -- WebDavServer
 function setup()
+    --if false == false then return end
     print("loading project and asset data ...")
     -- initialise the virtual file system
     -- create the root folder and add root folders for projects and each asset type.
     local folder = FolderNode()
     folder:add(ProjectsFolderNode("Projects"))
-    folder:add(AssetFolderNode("Models",MODELS))
-    folder:add(AssetFolderNode("Music",MUSIC))
-    folder:add(AssetFolderNode("Shaders",SHADERS))
-    folder:add(AssetFolderNode("Sprites",SPRITES))
-    folder:add(AssetFolderNode("Sounds",SOUNDS))
-    folder:add(AssetFolderNode("Text",TEXT))
+    local assets = FolderNode("Assets")
+    folder:add(assets)
+    assets:add(AssetPackFolderNode(DOCUMENTS))
+    assets:add(AssetPackFolderNode(DROPBOX))
     
     -- start the server 
     server = WebDavServer(folder, 8080)
