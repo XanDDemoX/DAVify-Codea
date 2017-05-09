@@ -4,6 +4,8 @@ url = socket.url
 
 -- Codea Craft
 MODELS = "models"
+DOCUMENTS = "Documents"
+DROPBOX = "Dropbox"
 
 function packLookup(...)
     local count = select("#",...)
