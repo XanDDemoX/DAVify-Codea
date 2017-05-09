@@ -1,9 +1,7 @@
--- WebDavServer
+-- DAVify
 function setup()
-    --if false == false then return end
-    print("loading project and asset data ...")
+    print("inialising virtual file system...")
     -- initialise the virtual file system
-    -- create the root folder and add root folders for projects and each asset type.
     local folder = FolderNode()
     folder:add(ProjectsFolderNode("Projects"))
     local assets = FolderNode("Assets")
@@ -11,9 +9,9 @@ function setup()
     assets:add(AssetPackFolderNode(DOCUMENTS))
     assets:add(AssetPackFolderNode(DROPBOX))
     
+    print("starting server...")
     -- start the server 
     server = WebDavServer(folder, 8080)
-    print("starting server...")
     server:start()
     print("server started: "..server.url)
     
