@@ -615,7 +615,7 @@ end
 -- assets
 AssetPackFolderNode = class(FolderNode)
 AssetPackFolderNode.assetFileNameFormats = packLookup(
-    MODELS, {"%s.obj","%s.mtl"},
+    MODELS, {"%s.obj","%s.mtl","%s.obj.mtl"},
     MUSIC, {"%s.m4a","%s.wav"},
     SOUNDS, {"%s.caf"},
     SPRITES, {"%s.png","%s@2x.png","%s.pdf"},
