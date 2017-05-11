@@ -603,7 +603,7 @@ end
 
 function ProjectFileNode:delete()
     assert(self:canDelete())
-    -- Nerver actually delete the .plist with os.remove because it cannot be recreated. 
+    -- Nerver actually delete Info.plist with os.remove because it cannot be recreated. 
     -- If it is deleted then listProjectTabs, saveProjectTab and opening/running the project will error.
     -- The only fix is to delete the project with deleteProject.
     if self.name ~= "Info.plist" and self.name ~= "Main.lua" then
@@ -612,57 +612,50 @@ function ProjectFileNode:delete()
     return true
 end
 
-AssetPackFolderNode = class(FolderNode)
-function AssetPackFolderNode:init(name)
-    FolderNode.init(self,name)
-    self:add(AssetFolderNode("Models",name,MODELS))
-    self:add(AssetFolderNode("Music",name,MUSIC))
-    self:add(ShadersFolderNode("Shaders",name))
-    self:add(AssetFolderNode("Sprites",name,SPRITES))
-    self:add(AssetFolderNode("Sounds",name,SOUNDS))
-    self:add(AssetFolderNode("Text",name,TEXT))
-end
-
 -- assets
-AssetFolderNode = class(FolderNode)
-AssetFolderNode.assetFileNameFormats = packLookup(
-    MODELS, {"%s.obj"},
+AssetPackFolderNode = class(FolderNode)
+AssetPackFolderNode.assetFileNameFormats = packLookup(
+    MODELS, {"%s.obj","%s.mtl"},
     MUSIC, {"%s.m4a","%s.wav"},
     SOUNDS, {"%s.caf"},
     SPRITES, {"%s.png","%s@2x.png","%s.pdf"},
     TEXT, {"%s.txt"}
 )
-function AssetFolderNode:init(name,assetPackName,assetType)
+
+function AssetPackFolderNode:init(name)
     FolderNode.init(self,name)
-    self.assetPackName = assetPackName
     self.assetType = assetType
-    local formats = AssetFolderNode.assetFileNameFormats[assetType]
-    local assets = assetList(assetPackName,assetType)
-    for i,name in ipairs(assets) do
-        for ii, format in ipairs(formats) do
-            local fileName = string.format(format,name)
-            local file = self:createFileNode(fileName)
-            if file:exists() then
-                self:add(file)
+    self.extensions = {}
+    for assetType,formats in pairs(AssetPackFolderNode.assetFileNameFormats) do
+        local assets = assetType and assetList(name,assetType)
+        for i,assetName in ipairs(assets) do
+            for ii, format in ipairs(formats) do
+                local file = self:createFileNode(string.format(format,assetName))
+                if file:exists() then
+                    self:add(file)
+                end
             end
         end
+        for i, format in ipairs(formats) do
+            local ext = Path.getExtension(format)
+            self.extensions[ext] = ext
+        end
     end
-    self.extensions = {}
-    for i, format in ipairs(formats) do
-        local ext = Path.getExtension(format)
-        self.extensions[ext] = ext
+    -- shaders
+    for i, assetName in ipairs(assetList(name,SHADERS)) do
+        self:add(ShaderFolderNode(assetName..".shader"))
     end
 end
 
-function AssetFolderNode:canCreateFiles()
+function AssetPackFolderNode:canCreateFiles()
     return true
 end
 
-function AssetFolderNode:canDeleteFiles()
+function AssetPackFolderNode:canDeleteFiles()
     return true
 end
 
-function AssetFolderNode:canCreateFile(name)
+function AssetPackFolderNode:canCreateFile(name)
     if not FolderNode.canCreateFile(self,name) then
         return false
     end
@@ -670,20 +663,20 @@ function AssetFolderNode:canCreateFile(name)
     return self.extensions[ext] ~= nil
 end
 
-function AssetFolderNode:createFileNode(name)
-    return AssetFileNode(name,self.assetPackName)
+function AssetPackFolderNode:createFileNode(name)
+    return AssetFileNode(name,self.name)
 end
 
-function AssetFolderNode:canRenameFiles()
-    return self.assetType == SPRITES
+function AssetPackFolderNode:canRenameFiles()
+    return true
 end
 
-function AssetFolderNode:canRenameFile(node,newName)
+function AssetPackFolderNode:canRenameFile(node,newName)
     return FolderNode.canRenameFile(self,node,newName) and
-    (node:fileName():find("@2x") == nil) == (newName:find("@2x") == nil)
+    node.assetType == SPRITES and (node:fileName():find("@2x") == nil) == (newName:find("@2x") == nil)
 end
 
-function AssetFolderNode:renameFile(node, newName)
+function AssetPackFolderNode:renameFile(node, newName)
     assert(self:canRenameFile(node,newName))
     local files = {{node=node, newName=newName}}
     local idx = node:fileName():find("@2x")
@@ -726,9 +719,19 @@ function AssetFolderNode:renameFile(node, newName)
 end
 
 AssetFileNode = class(NativeFileNode)
+AssetFileNode.extensionToAssetType = {}
+for assetType,formats in pairs(AssetPackFolderNode.assetFileNameFormats) do
+    for i, format in ipairs(formats) do
+        local ext = Path.getExtension(format)
+        AssetFileNode.extensionToAssetType[ext] = assetType
+    end
+end
 function AssetFileNode:init(name,assetPackName)
     NativeFileNode.init(self, name)
+    assert(type(assetPackName)=="string")
     self.assetPackName = assetPackName
+    self.assetType = AssetFileNode.extensionToAssetType[Path.getExtension(name)]
+    assert(self.assetType)
 end
 function AssetFileNode:nativePath()
     if self.assetPackName == DOCUMENTS then
@@ -737,15 +740,7 @@ function AssetFileNode:nativePath()
     return string.format("%s/Documents/%s.assets/%s",os.getenv("HOME"),self.assetPackName,self.name)
 end
 
-ShadersFolderNode = class(FolderNode)
-function ShadersFolderNode:init(name,assetPackName)
-    FolderNode.init(self,name)
-    for i, assetName in ipairs(assetList(assetPackName,SHADERS)) do
-        self:add(ShaderFolderNode(assetName))
-    end
-end
-
--- shader
+-- Shaders
 ShaderFolderNode = class(FolderNode)
 function ShaderFolderNode:init(name)
     FolderNode.init(self, name)
@@ -764,5 +759,5 @@ function ShaderFileNode:delete()
 end
 
 function ShaderFileNode:nativePath()
-    return string.format("%s/Documents/%s.shader/%s",os.getenv("HOME"),self.folder.name,self.name)
+    return string.format("%s/Documents/%s/%s",os.getenv("HOME"),self.folder.name,self.name)
 end
