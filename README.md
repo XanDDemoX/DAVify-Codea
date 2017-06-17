@@ -10,8 +10,7 @@
   * Linux
 
 #### Effortlessly manage your projects and assets in the way that suits you
-* Remotely access projects, project collections and assets with full control (create, modify, rename and delete)
-* Access files in any asset pack. Documents, Dropbox and Codea's standard asset packs (standard asset packs not enabled by default, they can be added to the virtual file system as required) .
+* Remotely access projects, project collections and assets (Documents & Dropbox) with full control (create, modify, rename and delete)
 * Supports all standard project and asset file types
   * Project source files (*.lua, Info.plist)
      * Info.plist is updated automatically when lua files are created, renamed or deleted. 
@@ -64,6 +63,8 @@ For a list of 3rd party clients see [Comparison of WebDAV software (Wikipedia)](
 * Projects
     * Collections must contain at least one project to be persisted
     * Collections cannot contain files
+* Assets
+	* Codea's standard asset folders cannot be accessed.
 * Shaders
     * Can only be created or deleted in Codea
 * Sprites
