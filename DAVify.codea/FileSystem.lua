@@ -237,8 +237,7 @@ function FolderNode:get(path)
     local node = self.nodes[path[1]]
     if node == nil or #path == 1 then
         return node -- found node or 
-    end
-    if not node:hasNodes() then -- avoid recursing if no child nodes
+    elseif not node:is_a(FolderNode) or not node:hasNodes() then -- avoid recursing if no child nodes
         return nil
     end
     table.remove(path,1)
