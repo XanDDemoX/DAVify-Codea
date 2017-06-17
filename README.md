@@ -15,7 +15,7 @@
   * Project source files (*.lua, Info.plist)
      * Info.plist is updated automatically when lua files are created, renamed or deleted. 
   * Models (*.obj, modelAssetName.mtl, modelAssetName.obj.mtl) - *Codea Craft required
-  * Music (*.m4a, *.wav)
+  * Music (*.mp3, *.m4a, *.wav)
   * Sounds (*.caf)
   * Sprites (*.png, *.pdf)
   * Text (*.txt)
