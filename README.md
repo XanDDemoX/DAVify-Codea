@@ -64,7 +64,8 @@ For a list of 3rd party clients see [Comparison of WebDAV software (Wikipedia)](
     * Collections must contain at least one project to be persisted
     * Collections cannot contain files
 * Assets
-	* Codea's standard asset folders cannot be accessed.
+	* Project assets cannot be accessed
+	* Codea's standard asset folders cannot be accessed
 * Shaders
     * Can only be created or deleted in Codea
 * Sprites
