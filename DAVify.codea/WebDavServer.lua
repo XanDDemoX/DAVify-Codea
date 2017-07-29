@@ -398,9 +398,9 @@ function WebDavServer:options(request)
     if not node then
         -- if the node is not found just return the root. This also just so happens to fix
         -- windows deciding the server doesn't exist because desktop.ini is not found.
-        return HttpResponse(200,"","Allow",self:getAllow(self.folder))
+        return HttpResponse(200,"","Allow",self:getAllow(self.folder),"DAV","1,2")
     end
-    return HttpResponse(200,"","Allow",self:getAllow(node))
+    return HttpResponse(200,"","Allow",self:getAllow(node),"DAV","1,2")
 end
 
 function WebDavServer:propFind(request)
