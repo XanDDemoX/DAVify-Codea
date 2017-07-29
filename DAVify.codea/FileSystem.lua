@@ -125,6 +125,9 @@ function FolderNode:canCreateFile(name)
     if not self:canCreateFiles() then
         return false
     end
+    if name:find("._") == 1 then -- stop osx creating junk files
+        return false
+    end
     return self.nodes[name]==nil
 end
 
