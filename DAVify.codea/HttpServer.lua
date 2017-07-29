@@ -158,6 +158,7 @@ function HttpServer:init(callback,port,timeout,clientTimeout,clientLimit)
     self.stopAfterRecieve = false
     self.name = "Codea-HTTP/1.1"
     self.debug = false
+    self.threads = {}
 end
 
 function HttpServer:getIp()
@@ -253,56 +254,82 @@ function HttpServer:receive(request,client)
     return HttpRequest(method,path,version,header,body)
 end
 
+function HttpServer:accept(client)
+    -- client connected. Set the timeout.
+    client:settimeout(self.clientTimeout)
+        
+    -- Receive the request's first line
+    local requestString = client:receive()
+    if requestString then
+        -- try receive and parse the rest of the request
+        local request = self:receive(requestString,client)
+        local response
+        if request then
+
+            if request:is_a(HttpRequest) then
+                self:debugOutput(client,request)
+                -- check that protocol version is supported
+                if request.version ~= "HTTP/1.1" then
+                    response = HttpResponse(505)
+                else
+                    -- request recieved successfully and pass to callback to get the response
+                    response = self.callback(request)
+                end
+            elseif request:is_a(HttpResponse) then
+                -- if request is actually a response then an error occured
+                response = request
+            end
+                
+            response = response or HttpResponse(500) -- if no response then 500
+            self:injectHeader(response)
+                
+            -- allow the response to determine how the files are actually sent
+            response:sendHeader(client)
+            response:sendContent(client)
+                
+            self:debugOutput(client,response)
+        end
+    else
+        -- timeout
+    end
+    client:close()
+end
+
 function HttpServer:update()
     if self.running == false then
         return
     end
-    -- wait for and accept a connection from a client 
-    local client = self.socket:accept()
-    if client ~= nil then
+    -- run threads
+    for client,thread in pairs(self.threads) do
         self.receiving = true
-        -- client connected. Set the timeout.
-        client:settimeout(self.clientTimeout)
-        
-        -- Receive the request's first line
-        local requestString = client:receive()
-        if requestString then
-            -- try receive and parse the rest of the request
-            local request = self:receive(requestString,client)
-            local response
-            if request then
-
-                if request:is_a(HttpRequest) then
-                    self:debugOutput(request)
-                    -- check that protocol version is supported
-                    if request.version ~= "HTTP/1.1" then
-                        response = HttpResponse(505)
-                    else
-                        -- request recieved successfully and pass to callback to get the response
-                        response = self.callback(request)
-                    end
-                elseif request:is_a(HttpResponse) then
-                    -- if request is actually a response then an error occured
-                    response = request
-                end
-                
-                response = response or HttpResponse(500) -- if no response then 500
-                self:injectHeader(response)
-                
-                -- allow the response to determine how the files are actually sent
-                response:sendHeader(client)
-                response:sendContent(client)
-                
-                self:debugOutput(response)
-            end
-        else
-            -- timeout
+        self:debugOutput(client,"thread resume")
+        local success = coroutine.resume(thread)
+        local status = coroutine.status(thread)
+        self:debugOutput(client,"thread "..status)
+        if success == false or status == "dead" then
+            self.threads[client] = nil
         end
-        client:close() -- we don't keep connection's alive
-        self.receiving = false
-        if self.stopAfterRecieve == true then
-            self.stopAfterRecieve = false
-            self:stop()
+    end
+    local anyAlive = false
+    for client,thread in pairs(self.threads) do 
+        anyAlive = true
+        break
+    end
+    self.receiving = anyAlive
+    -- only stop when all clients disconnected
+    if anyAlive == false and self.stopAfterRecieve == true then
+        self.stopAfterRecieve = false
+        self:stop()
+        return
+    elseif self.stopAfterRecieve == false then -- accept clients
+        -- wait for and accept a connection from a client 
+        local client = self.socket:accept()
+        if client ~= nil then
+            local thread = coroutine.create(function()
+                self:accept(client)
+            end)
+            self.threads[client] = thread
+            self:debugOutput(client,"thread create")
         end
     end
     -- reclaim memory, seccond collectgarbge ensures resurrected objects are collected 
@@ -311,17 +338,24 @@ function HttpServer:update()
     collectgarbage()
 end
 
-function HttpServer:debugOutput(obj)
+function HttpServer:debugOutput(client,obj)
     if not self.debug then return end
-    if type(obj) == "table" and obj.is_a then
-        if obj:is_a(HttpRequest) then
-            print(obj:toString())
-        elseif obj:is_a(HttpGetResponse) then
-            print(obj:getHeader())
-        elseif obj:is_a(HttpResponse) then
-            print(obj:toString())
-        end
+    local str = {}
+    local thread = self.threads[client]
+    table.insert(str,tostring(client))
+    table.insert(str,"\r\n")
+    table.insert(str,tostring(thread))
+    if obj then
+        table.insert(str,"\r\n\r\n")
     end
+    if type(obj) == "table" and obj.is_a then
+        if obj:is_a(HttpRequest) or obj:is_a(HttpResponse) then
+            table.insert(str,obj:toString())
+        end
+    else
+        table.insert(str,tostring(obj))
+    end
+    print(table.concat(str))
 end
 
 function HttpServer:injectHeader(response)
