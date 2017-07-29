@@ -26,3 +26,8 @@ function parseProjectKey(key)
     end
     return key
 end
+
+function trim(str)
+    if str == nil then return nil end
+    return str:gsub("^%s+",""):gsub("%s+$","")
+end

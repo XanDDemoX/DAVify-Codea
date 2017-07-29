@@ -224,6 +224,8 @@ function HttpServer:receive(request,client)
             local i = cur:find(":",1,true)
             if i then
                 local name,value = cur:sub(1,i-1),cur:sub(i+1)
+                name = trim(name)
+                value = trim(value)
                 header[name] = value
             else
                 return HttpResponse(400)
