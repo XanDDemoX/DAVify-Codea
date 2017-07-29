@@ -234,14 +234,44 @@ function HttpServer:receive(request,client)
         end
     end
     if not cur then return end -- timeout
-    -- get and parse the content length (bytes)
-    local size = tonumber(header["Content-Length"])
-    if size and size > 0 then
-        body = client:receive(size) -- read the content (probably needs to be smarter if content is massive)
-        if not body then -- timeout
-            return nil
+    if header["Content-Length"] then
+        -- get and parse the content length (bytes)
+        local size = tonumber(header["Content-Length"])
+        if size and size > 0 then
+            body = client:receive(size) -- read the content (probably needs to be smarter if content is massive)
+            if not body then -- timeout
+                return nil
+            end
         end
-    elseif not size then
+    elseif header["Transfer-Encoding"] and header["Transfer-Encoding"]:lower() == "chunked" then
+        local chunks = {}
+        local status,chunk
+        while status ~= "closed" do
+            client:settimeout(0)
+            -- receive chunk size in hex
+            local buffer = {}
+            local byte
+            repeat
+                byte,status = client:receive(1)
+                table.insert(buffer,byte)
+            until status ~= nil or (buffer[#buffer-1] == "\r" and buffer[#buffer] == "\n")
+            local hex = tonumber(table.concat(buffer),16) -- parse hex
+            if hex and hex > 0 then
+                chunk,status = client:receive(hex) -- receive the chunk
+                if chunk then
+                    table.insert(chunks,chunk)
+                end
+            elseif hex == 0 then
+                -- receive final newline
+                client:receive(2)
+                break
+            end
+            client:settimeout(self.clientTimeout)
+            coroutine.yield()
+        end
+        client:settimeout(self.clientTimeout)
+        body = table.concat(chunks)
+    else
         -- test for a body by attempting to receive 1 byte on a short timeout
         client:settimeout(0.01)
         local byte = client:receive(1)
