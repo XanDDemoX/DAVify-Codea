@@ -48,6 +48,7 @@
 * **Finder -> Go -> Connect to server**
 * Enter full server url including the port e.g. `http://192.168.0.2:8080`
 * Click **Connect**
+  * If you are prompted for authentication enter any username but leave the password blank.
 
 #### Linux
 * GNOME Files
